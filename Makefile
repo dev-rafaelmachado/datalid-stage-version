@@ -147,6 +147,24 @@ help:
 	@echo "  ocr-trocr-benchmark  Benchmark completo do TrOCR 🏆"
 	@echo "  ocr-trocr-validate-brightness  Valida normalização de brilho 🔆"
 	@echo ""
+	@echo "$(GREEN)🔗 PIPELINE COMPLETA (YOLO + OCR):$(RESET)"
+	@echo "  pipeline-test        Testa pipeline em uma imagem (IMAGE=...) ⚡"
+	@echo "  pipeline-eval-quick  Avaliação rápida (10 imagens) 🚀"
+	@echo "  pipeline-eval-full   Avaliação completa (todas as imagens) 📊"
+	@echo "  pipeline-eval        Avaliação customizada (NUM=X MODE=random/first) 🎯"
+	@echo ""
+	@echo "$(YELLOW)  Exemplos de uso da pipeline:$(RESET)"
+	@echo "    make pipeline-test IMAGE=data/sample.jpg"
+	@echo "    make pipeline-eval NUM=10 MODE=first"
+	@echo "    make pipeline-eval NUM=20 MODE=random OUTPUT=meus_testes"
+	@echo "    make pipeline-eval-full"
+	@echo ""
+	@echo "$(CYAN)  📖 Documentação da Pipeline:$(RESET)"
+	@echo "    docs/PIPELINE_EVALUATION_TLDR.md     - Resumo rápido (2 min)"
+	@echo "    docs/PIPELINE_EVALUATION_QUICK.md    - Guia rápido (5 min)"
+	@echo "    docs/PIPELINE_EVALUATION_EXAMPLE.md  - Tutorial completo"
+	@echo "    docs/PIPELINE_EVALUATION_INDEX.md    - Índice completo"
+	@echo ""
 
 # ========================================
 # 📦 INSTALAÇÃO
@@ -560,7 +578,73 @@ endif
 		$(if $(CROPS),--save-crops,)
 
 # ========================================
-# �🚀 API E DEPLOY
+# 🔗 PIPELINE COMPLETA (YOLO + OCR)
+# ========================================
+
+.PHONY: pipeline-test pipeline-eval pipeline-eval-quick pipeline-eval-full evaluate-pipeline evaluate-pipeline-quick evaluate-pipeline-full
+
+# Teste rápido da pipeline em uma imagem
+pipeline-test:
+	@echo "$(MAGENTA)🚀 Testando pipeline completa (YOLO → OCR)...$(RESET)"
+ifndef IMAGE
+	@echo "$(RED)❌ Erro: Especifique IMAGE=caminho/para/imagem.jpg$(RESET)"
+	@echo "$(YELLOW)Exemplo: make pipeline-test IMAGE=data/sample.jpg$(RESET)"
+	@exit 1
+endif
+	@echo "$(CYAN)📸 Imagem: $(IMAGE)$(RESET)"
+	@echo "$(CYAN)💾 Salvando em: outputs/pipeline_steps/$(RESET)"
+	$(PYTHON) scripts/pipeline/test_full_pipeline.py \
+		--image "$(IMAGE)" \
+		--config config/pipeline/full_pipeline.yaml \
+		--output outputs/pipeline_steps
+	@echo "$(GREEN)✅ Pipeline testada! Veja os resultados em outputs/pipeline_steps/$(RESET)"
+
+# Avaliação completa da pipeline (todas as imagens)
+pipeline-eval-full:
+	@echo "$(MAGENTA)📊 Avaliação completa da pipeline (todas as imagens)...$(RESET)"
+	@echo "$(CYAN)Dataset: data/ocr_test/$(RESET)"
+	@echo "$(CYAN)Configuração: config/pipeline/pipeline_evaluation.yaml$(RESET)"
+	$(PYTHON) scripts/pipeline/evaluate_pipeline.py \
+		--config config/pipeline/pipeline_evaluation.yaml
+	@echo "$(GREEN)✅ Avaliação concluída! Veja os resultados em outputs/pipeline_evaluation/$(RESET)"
+
+# Avaliação rápida (10 imagens)
+pipeline-eval-quick:
+	@echo "$(MAGENTA)📊 Avaliação rápida da pipeline (10 imagens)...$(RESET)"
+	@echo "$(CYAN)Seleção: primeiras 10 imagens$(RESET)"
+	$(PYTHON) scripts/pipeline/evaluate_pipeline.py \
+		--config config/pipeline/pipeline_evaluation.yaml \
+		--num-images 10 \
+		--selection-mode first
+	@echo "$(GREEN)✅ Avaliação rápida concluída!$(RESET)"
+
+# Avaliação customizada
+pipeline-eval:
+	@echo "$(MAGENTA)📊 Avaliação da pipeline...$(RESET)"
+ifndef NUM
+	@echo "$(RED)❌ Erro: Especifique NUM=número_de_imagens$(RESET)"
+	@echo "$(YELLOW)Exemplos:$(RESET)"
+	@echo "  make pipeline-eval NUM=10                    # Primeiras 10 imagens"
+	@echo "  make pipeline-eval NUM=20 MODE=random        # 20 imagens aleatórias"
+	@echo "  make pipeline-eval NUM=50 OUTPUT=meus_testes # Customizar output"
+	@exit 1
+endif
+	@echo "$(CYAN)Imagens: $(NUM)$(RESET)"
+	@echo "$(CYAN)Modo: $(if $(MODE),$(MODE),first)$(RESET)"
+	$(PYTHON) scripts/pipeline/evaluate_pipeline.py \
+		--config config/pipeline/pipeline_evaluation.yaml \
+		--num-images $(NUM) \
+		$(if $(MODE),--selection-mode $(MODE),) \
+		$(if $(OUTPUT),--output $(OUTPUT),)
+	@echo "$(GREEN)✅ Avaliação concluída!$(RESET)"
+
+# Aliases for pipeline evaluation (alternative names)
+evaluate-pipeline: pipeline-eval
+evaluate-pipeline-quick: pipeline-eval-quick
+evaluate-pipeline-full: pipeline-eval-full
+
+# ========================================
+# 🚀 API E DEPLOY
 # ========================================
 
 .PHONY: run-api build-docker run-docker
@@ -1079,7 +1163,7 @@ endif
 		--image "$(IMAGE)" \
 		--config $(CONFIG_DIR)/pipeline/full_pipeline.yaml \
 		--save-crops
-	@echo "$(GREEN)✅ Pipeline executado!$(RESET)"
+	@echo "$(GREEN)✅ Pipeline executada!$(RESET)"
 	@echo "$(CYAN)📊 Resultados em: outputs/pipeline/visualizations/$(RESET)"
 
 # Processar diretório completo

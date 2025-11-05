@@ -29,10 +29,43 @@ Sistema modular para detecção e extração de datas de validade em imagens, co
 - Componentes são modulares: troque a engine OCR ou o modelo YOLO via configs e presets.
 - Experimentos reproduzíveis em `experiments/` (presets / args.yaml).
 
+## Avaliação da Pipeline 📊
+Sistema completo de avaliação end-to-end (YOLO → OCR → Parsing):
+
+```bash
+# Teste rápido em uma imagem
+make pipeline-test IMAGE=data/sample.jpg
+
+# Avaliação rápida (10 imagens)
+make pipeline-eval-quick
+
+# Avaliação customizada
+make pipeline-eval NUM=20 MODE=random
+
+# Avaliação completa (todas as imagens)
+make pipeline-eval-full
+```
+
+**Métricas calculadas:**
+- Detecção (YOLO): taxa de detecção, confiança média
+- OCR: exact match, CER, WER, similaridade
+- Parsing: taxa de datas encontradas
+- End-to-end: acurácia da pipeline, tempo de processamento
+
+**Outputs gerados:**
+- CSV detalhado com resultados por imagem
+- Métricas agregadas (JSON)
+- Relatório markdown formatado
+- Visualizações e gráficos
+- Análise de erros por etapa
+
+Veja [`docs/PIPELINE_EVALUATION_QUICK.md`](docs/PIPELINE_EVALUATION_QUICK.md) para guia rápido ou [`docs/PIPELINE_EVALUATION.md`](docs/PIPELINE_EVALUATION.md) para documentação completa.
+
 ## Onde olhar primeiro
 - `docs/ARCHITECTURE.md` — visão técnica resumida do fluxo e decisões de design.
 - `scripts/inference/predict_single.py` — ponto de entrada para inferência rápida.
 - `config/project_config.yaml` e `config/pipeline/full_pipeline.yaml` — configuração do pipeline padrão.
+- `docs/PIPELINE_EVALUATION_QUICK.md` — guia rápido de avaliação da pipeline.
 
 ## Contribuição e contato
 - Abra uma issue para bugs ou sugestões.

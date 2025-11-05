@@ -1,0 +1,227 @@
+# ========================================
+# 📊 Configuração: Avaliação da Pipeline Completa
+# ========================================
+
+name: pipeline_evaluation
+description: "Avaliação end-to-end da pipeline: YOLO → OCR → Parsing"
+
+# Dataset de Avaliação
+dataset:
+  # Caminho para as imagens de teste
+  images_dir: data/raw/TCC_DATESET_V2-2/train/images
+  
+  # Ground truth com labels finais (datas extraídas)
+  ground_truth: data/evaluation/ground_truth.json
+  
+  # Número de imagens para testar (null = todas)
+  num_images: null  # Usar todas as imagens disponíveis
+  
+  # Modo de seleção: 'first', 'random', 'all'
+  selection_mode: random
+  
+  # Seed para seleção aleatória (reprodutibilidade)
+  random_seed: 42
+
+# Pipeline Configuration
+pipeline:
+  # Usar configuração existente da pipeline
+  config_file: config/pipeline/full_pipeline.yaml
+  
+  # Salvar outputs intermediários de cada etapa
+  save_intermediate_steps: true
+  
+  # Verbose (mostrar detalhes durante processamento)
+  verbose: true
+
+# Métricas para Avaliar
+metrics:
+  # Métricas de Detecção (YOLO)
+  detection:
+    enabled: true
+    metrics:
+      - detection_rate      # % de imagens com pelo menos 1 detecção
+      - avg_detections      # Número médio de detecções por imagem
+      - avg_confidence      # Confiança média das detecções
+  
+  # Métricas de OCR
+  ocr:
+    enabled: true
+    metrics:
+      - exact_match         # Match exato da string
+      - partial_match       # Match parcial (>50% similaridade)
+      - character_error_rate  # CER
+      - word_error_rate     # WER
+      - similarity          # Similaridade (0-1)
+  
+  # Métricas de Parsing de Data
+  date_parsing:
+    enabled: true
+    metrics:
+      - date_found          # % de datas encontradas
+      - date_valid          # % de datas válidas
+      - component_accuracy  # Acurácia por componente (dia/mês/ano)
+      - format_match        # Match do formato da data
+  
+  # Métricas End-to-End
+  end_to_end:
+    enabled: true
+    metrics:
+      - pipeline_accuracy   # % de datas corretas no final
+      - full_match          # Match completo (data idêntica)
+      - date_component_match  # Pelo menos 1 componente correto
+      - avg_processing_time # Tempo médio por imagem
+
+# Análise de Erros
+error_analysis:
+  # Identificar padrões de erro
+  enabled: true
+  
+  # Classificar erros por etapa
+  classify_by_stage: true
+  
+  # Salvar exemplos de erros
+  save_error_examples: true
+  max_error_examples: 20
+  
+  # Análise detalhada
+  detailed_analysis:
+    # Análise por tipo de erro
+    by_error_type: true
+    
+    # Análise por dificuldade da imagem
+    by_difficulty: false
+    
+    # Casos específicos
+    edge_cases: true
+
+# Outputs
+output:
+  # Diretório base de saída
+  base_dir: outputs/pipeline_evaluation
+  
+  # Criar subdiretório com timestamp
+  use_timestamp: true
+  
+  # Salvar resultados
+  save_results:
+    # CSV com resultados detalhados por imagem
+    detailed_csv: true
+    
+    # JSON com resultados completos
+    full_json: true
+    
+    # Relatório markdown
+    markdown_report: true
+    
+    # Métricas agregadas (JSON)
+    metrics_summary: true
+  
+  # Salvar visualizações
+  save_visualizations:
+    # Gráficos de métricas
+    metrics_plots: true
+    
+    # Confusion matrices
+    confusion_matrix: true
+    
+    # Distribuições de erro
+    error_distributions: true
+    
+    # Exemplos de sucesso/falha
+    example_images: true
+    
+    # Comparação com ground truth
+    comparison_plots: true
+  
+  # Salvar steps intermediários por imagem
+  save_intermediate_steps:
+    enabled: true
+    steps:
+      - input_image
+      - yolo_detection
+      - segmentation_masks
+      - crops_original
+      - crops_preprocessed
+      - ocr_results
+      - parsed_dates
+      - final_result
+
+# Comparação com Baseline
+comparison:
+  # Comparar com resultados anteriores (OCR standalone)
+  enabled: false
+  
+  # Resultados anteriores para comparar
+  baseline_results:
+    - outputs/ocr_benchmarks/openocr/openocr_results.csv
+  
+  # Métricas para comparar
+  compare_metrics:
+    - exact_match
+    - character_error_rate
+    - processing_time
+
+# Validação
+validation:
+  # Formato esperado do ground truth
+  ground_truth_format:
+    type: json  # json ou csv
+    encoding: utf-8
+    
+    # Para JSON - Suporta dois formatos:
+    # Formato 1 (antigo): {"annotations": {"image.jpg": "text", ...}}
+    # Formato 2 (novo):   {"detection_id": {"image": "image.jpg", "expiry_date": "...", ...}, ...}
+    json_key: annotations  # Key que contém as anotações (opcional para formato 2)
+    field_name: expiry_date  # Nome do campo com a data de validade (para formato 2)
+    
+    # Mapeamento de campos
+    fields:
+      image_id: filename  # Campo com nome/id da imagem
+      label: text         # Campo com texto esperado (formato 1)
+      expiry: expiry_date # Campo com data de validade (formato 2)
+  
+  # Normalização de texto
+  text_normalization:
+    # Remover espaços extras
+    strip_whitespace: true
+    
+    # Converter para lowercase para comparação
+    lowercase: false
+    
+    # Normalizar caracteres especiais
+    normalize_special_chars: false
+    
+    # Remover pontuação para comparação
+    remove_punctuation: false
+
+# Configurações de Processamento
+processing:
+  # Processar em lote (batch)
+  batch_processing: false
+  batch_size: 1
+  
+  # Número de workers (paralelo)
+  num_workers: 1
+  
+  # Continuar em caso de erro
+  continue_on_error: true
+  
+  # Timeout por imagem (segundos)
+  timeout_per_image: 60
+  
+  # Mostrar progresso
+  show_progress: true
+
+# Logging
+logging:
+  # Nível de log
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+  
+  # Salvar log em arquivo
+  save_to_file: true
+  
+  # Arquivo de log
+  log_file: outputs/pipeline_evaluation/evaluation.log
+  
+  # Log detalhado por imagem
+  log_per_image: false
