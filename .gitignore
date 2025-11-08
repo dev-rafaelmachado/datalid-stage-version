@@ -104,12 +104,13 @@ experiments/**/*.png
 outputs/**/*.jpg
 outputs/**/*.png
 
-# Results directory
-/outputs/
-/e2e_results/
+outputs/**/debug_images/
+!outputs/ocr_benchmarks/comparison/*
+!outputs/ocr_benchmarks/**/overview.png
 
-# OCR debug images
-/outputs/ocr_benchmarks/**/debug_images/
+# Results directory
+# /outputs/
+/e2e_results/
 
 # ========================================
 # 📈 Logs & Tracking
@@ -133,7 +134,7 @@ wandb/
 # ========================================
 
 # CSV exports
-*.csv
+# *.csv
 
 # JSON outputs (keep configs)
 *.json
@@ -305,3 +306,13 @@ node_modules/
 !README.md
 !CHANGELOG.md
 !LICENSE
+!ARQUIVOS_GRANDES.md
+
+# Keep experiment configs (but not weights)
+!experiments/**/args.yaml
+!experiments/**/results.csv
+!experiments/**/.gitkeep
+
+# Keep data configs
+!data/**/data.yaml
+!data/**/ground_truth.json

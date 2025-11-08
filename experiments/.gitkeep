@@ -1,0 +1,6 @@
+# Pasta para resultados de experimentos YOLO
+# Os pesos treinados (.pt) e imagens não são versionados (muito grandes)
+# Estrutura:
+# - experiments/nome-do-experimento/weights/best.pt
+# - experiments/nome-do-experimento/results.csv
+# - experiments/nome-do-experimento/args.yaml
