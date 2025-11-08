@@ -228,7 +228,7 @@ credentials.json
 # ========================================
 
 # Pre-trained models
-/models/*/
+/models/**
 !/models/.gitkeep
 
 # HuggingFace cache
