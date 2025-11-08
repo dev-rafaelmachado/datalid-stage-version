@@ -30,7 +30,7 @@ Sistema **modular**, **escalável** e de **alto desempenho** que combina **YOLOv
 ```bash
 # Clone o repositório
 git clone [seu-repo]
-cd datalid3.0
+cd datalid
 
 # Instale as dependências
 pip install -r requirements.txt
@@ -43,20 +43,14 @@ make validate-env
 
 ```bash
 # Teste em uma imagem de exemplo
-make pipeline-test IMAGE=data/ocr_test/sample.jpg
+make pipeline-test IMAGE=imagem.png
 ```
 
 **Resultado esperado:**
 ```
 ✅ Data encontrada: 15/03/2025
-   Confiança: 95%
+   Confiança: 70%
    Tempo: 1.2s
-```
-
-### Teste com sua imagem
-
-```bash
-make pipeline-test IMAGE=/caminho/para/sua/imagem.jpg
 ```
 
 ---
