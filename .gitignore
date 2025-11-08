@@ -159,6 +159,8 @@ htmlcov/
 *.cover
 .hypothesis/
 
+/output/preprocessing/**/
+
 # ========================================
 # 📓 Jupyter Notebooks
 # ========================================
@@ -228,8 +230,8 @@ credentials.json
 # ========================================
 
 # Pre-trained models
-/models/**
-!/models/.gitkeep
+/models/**/
+!models/.gitkeep
 
 # HuggingFace cache
 .cache/huggingface/
