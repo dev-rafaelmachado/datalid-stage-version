@@ -121,7 +121,7 @@ A documentação está **completamente atualizada** e organizada em **[docs/READ
 ┌─────────────────────────┐
 │  4. PÓS-PROCESSAMENTO  │  → Valida e parsea
 │     • Regex             │    Data: 15/03/2025
-│     • Fuzzy matching    │    Confiança: 45%
+│     • Fuzzy matching    │    Confiança: 75%
 │     • Validação         │
 └─────────────────────────┘
 ```
