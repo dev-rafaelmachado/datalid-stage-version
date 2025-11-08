@@ -7,7 +7,7 @@
 [![YOLOv8](https://img.shields.io/badge/YOLO-v8-red.svg)](https://github.com/ultralytics/ultralytics)
 [![Documentation](https://img.shields.io/badge/docs-complete-brightgreen.svg)](docs/README.md)
 
-Sistema **modular**, **escalável** e de **alto desempenho** que combina **YOLOv8** (detecção/segmentação) com **7 engines OCR** e pós-processamento inteligente para extrair datas de validade de produtos com **95%+ de precisão**.
+Sistema **modular**, **escalável** e de **alto desempenho** que combina **YOLOv8** (detecção/segmentação) com **7 engines OCR** e pós-processamento inteligente para extrair datas de validade de produtos com **45%+ de precisão**.
 
 ---
 
@@ -127,7 +127,7 @@ A documentação está **completamente atualizada** e organizada em **[docs/READ
 ┌─────────────────────────┐
 │  4. PÓS-PROCESSAMENTO  │  → Valida e parsea
 │     • Regex             │    Data: 15/03/2025
-│     • Fuzzy matching    │    Confiança: 95%
+│     • Fuzzy matching    │    Confiança: 45%
 │     • Validação         │
 └─────────────────────────┘
 ```
@@ -219,13 +219,13 @@ detection:
 
 ```yaml
 ocr:
-  engine: openocr        # Padrão (95% precisão) ⭐
+  engine: openocr        # Padrão (71% precisão) ⭐
   # ou
-  engine: parseq_enhanced  # PARSeq melhorado (93% precisão)
+  engine: parseq_enhanced  # PARSeq melhorado (30% precisão)
   # ou
-  engine: trocr           # TrOCR (90% precisão)
+  engine: trocr           # TrOCR (30% precisão)
   # ou
-  engine: easyocr         # EasyOCR (85% precisão)
+  engine: easyocr         # EasyOCR (14% precisão)
 ```
 
 ### Ajustar Pré-processamento
@@ -478,46 +478,11 @@ async function verificarValidade(foto) {
     return data.best_date;
 }
 ```
-
----
-
-## 🤝 Contribuindo
-
-Contribuições são bem-vindas! Por favor:
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
-
-Veja [CONTRIBUTING.md](docs/26-CONTRIBUTING.md) para detalhes.
-
 ---
 
 ## 📝 Licença
 
 Este projeto está sob licença MIT - veja [LICENSE](LICENSE) para detalhes.
-
----
-
-## 🙏 Agradecimentos
-
-- **Ultralytics** pelo YOLOv8
-- **OpenOCR Team** pelo engine OCR
-- **PARSeq Authors** pela arquitetura transformer
-- Comunidade open-source
-
----
-
-## 📞 Suporte
-
-- 📖 **Documentação**: [docs/README.md](docs/README.md)
-- 🐛 **Issues**: Reporte bugs ou sugira features
-- 💬 **Discussions**: Tire dúvidas e compartilhe experiências
-- 📧 **Email**: [seu-email]
-
----
 
 ## 🎓 Citação
 
@@ -537,7 +502,5 @@ Se você usar este projeto em sua pesquisa, por favor cite:
 <div align="center">
 
 **[⬆ Voltar ao topo](#-datalid-30)**
-
-Feito com ❤️ pelo time Datalid
 
 </div>
