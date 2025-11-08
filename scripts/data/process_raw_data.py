@@ -13,9 +13,10 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 from loguru import logger
 
-# Adicionar src ao path PRIMEIRO
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 # Agora importar módulos locais
 from src.core.constants import CLASS_NAMES

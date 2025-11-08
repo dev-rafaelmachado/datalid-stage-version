@@ -5,19 +5,27 @@ Baixa dataset do Roboflow usando a API.
 
 import argparse
 import os
-from pathlib import Path
-from loguru import logger
-
 # Adicionar src ao path
 import sys
+from pathlib import Path
+
+from loguru import logger
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT))
+
+SCRIPT_DIR = Path(__file__).resolve().parent  # scripts/
+PROJECT_ROOT = SCRIPT_DIR.parent  # pasta base do projeto
+OUTPUT_DIR = PROJECT_ROOT / "data" / "raw"
+
+# Garante que o diretório existe
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Configurações do projeto (baseadas no código fornecido)
 DEFAULT_API_KEY = "crS7dKMHZj3VlfWw40mS"
 DEFAULT_WORKSPACE = "projetotransformadorii"
 DEFAULT_PROJECT = "tcc_dateset_v2-zkcsu"
-DEFAULT_VERSION = 2
+DEFAULT_VERSION = 6
 DEFAULT_FORMAT = "yolov8"
 
 
@@ -60,7 +68,7 @@ def download_dataset(
     project: str,
     version: int,
     format: str = "yolov8",
-    output_dir: str = "data/raw"
+    output_dir: str = "../../data/raw"
 ) -> bool:
     """
     Baixa dataset do Roboflow.
@@ -185,7 +193,7 @@ def parse_arguments():
     parser.add_argument(
         '--output',
         type=str,
-        default='data/raw',
+        default=OUTPUT_DIR,
         help='Diretório de saída'
     )
 
@@ -270,7 +278,7 @@ def main():
                     else:
                         logger.warning("⚠️ Erro no processamento automático")
                         logger.info(
-                            "💡 Execute manualmente: make process-data INPUT=" + str(dataset_path))
+                            "💡 Execute manualmente: make process INPUT=" + str(dataset_path))
                 else:
                     logger.warning(
                         "⚠️ Pasta do dataset não encontrada para processamento")
@@ -278,7 +286,7 @@ def main():
             except Exception as e:
                 logger.warning(f"⚠️ Erro no processamento automático: {e}")
                 logger.info(
-                    "💡 Execute manualmente: make process-data INPUT=" + args.output)
+                    "💡 Execute manualmente: make process INPUT=" + args.output)
 
         # Resumo final
         logger.success("🎉 DOWNLOAD CONCLUÍDO!")

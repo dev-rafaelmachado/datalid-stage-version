@@ -9,14 +9,18 @@ from pathlib import Path
 from typing import Dict, Optional
 
 # Adicionar src ao path PRIMEIRO
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
+from loguru import logger
+
+from src.core.config import config
 # Agora importar os módulos locais
 from src.data.validators import quick_validate
-from src.yolo import YOLOConfig, YOLOTrainer, TrainingConfig, AugmentationConfig
-from src.core.config import config
-from loguru import logger
+from src.yolo import (AugmentationConfig, TrainingConfig, YOLOConfig,
+                      YOLOTrainer)
 
 
 def parse_arguments():
@@ -100,6 +104,12 @@ def parse_arguments():
         '--resume',
         type=str,
         help='Resumir treinamento de checkpoint'
+    )
+
+    parser.add_argument(
+        '--no-test',
+        action='store_true',
+        help='Não executar teste automático após treinamento'
     )
 
     return parser.parse_args()
@@ -377,6 +387,61 @@ def main():
             results = model.train(resume=True, **train_args)
         else:
             results = model.train(**train_args)
+        
+        # Executar teste automático se não foi desabilitado
+        if not args.no_test:
+            logger.info("\n" + "=" * 60)
+            logger.info("🧪 Executando avaliação no conjunto de TESTE...")
+            logger.info("=" * 60 + "\n")
+            
+            try:
+                # Usar o melhor modelo para teste
+                best_model = Path(project) / name / "weights" / "best.pt"
+                if best_model.exists():
+                    test_model = YOLO(str(best_model))
+                    
+                    # Tentar com save_json, se falhar, usar sem
+                    try:
+                        test_results = test_model.val(
+                            data=training_config['data'],
+                            split='test',
+                            plots=True,
+                            save_json=True
+                        )
+                    except ModuleNotFoundError as e:
+                        if 'faster_coco_eval' in str(e):
+                            logger.warning("⚠️ faster_coco_eval não disponível, continuando sem save_json")
+                            test_results = test_model.val(
+                                data=training_config['data'],
+                                split='test',
+                                plots=True,
+                                save_json=False
+                            )
+                        else:
+                            raise
+                    
+                    logger.success("✅ Teste concluído!")
+                    logger.info("\n📊 MÉTRICAS DO CONJUNTO DE TESTE:")
+                    
+                    # Log métricas de box
+                    if hasattr(test_results, 'box') and test_results.box:
+                        logger.info(f"  • mAP@0.5      : {test_results.box.map50:.4f}")
+                        logger.info(f"  • mAP@0.5:0.95 : {test_results.box.map:.4f}")
+                        logger.info(f"  • Precision    : {test_results.box.p:.4f}")
+                        logger.info(f"  • Recall       : {test_results.box.r:.4f}")
+                    
+                    # Log métricas de mask (se disponível)
+                    if hasattr(test_results, 'masks') and test_results.masks:
+                        logger.info(f"\n🎭 Segmentação:")
+                        logger.info(f"  • mAP@0.5      : {test_results.masks.map50:.4f}")
+                        logger.info(f"  • mAP@0.5:0.95 : {test_results.masks.map:.4f}")
+                        logger.info(f"  • Precision    : {test_results.masks.p:.4f}")
+                        logger.info(f"  • Recall       : {test_results.masks.r:.4f}")
+                else:
+                    logger.warning("⚠️ Modelo best.pt não encontrado para teste")
+            except Exception as e:
+                logger.warning(f"⚠️ Erro ao executar teste: {str(e)}")
+                logger.warning("Continuando sem métricas de teste...")
 
         # Log resultados finais
         logger.success("\n" + "=" * 60)

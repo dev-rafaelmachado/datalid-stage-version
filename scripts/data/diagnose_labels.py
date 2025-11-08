@@ -4,14 +4,17 @@ Verifica integridade dos labels do Roboflow e identifica problemas.
 """
 
 import sys
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple
-from collections import defaultdict
+
 from loguru import logger
 
 # Adicionar src ao path
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 
 def analyze_label_file(label_path: Path) -> Dict:

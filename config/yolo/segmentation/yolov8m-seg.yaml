@@ -18,7 +18,7 @@ model: yolov8m-seg.pt  # Medium Segmentation - alto desempenho
 task: segment
 
 # Training hyperparameters
-epochs: 150    # Mais épocas para modelo maior convergir
+epochs: 100    # Mais épocas para modelo maior convergir
 imgsz: 640     # Resolução padrão YOLO
 batch: 4       # Batch CRÍTICO - não aumentar!
 device: 0      # GPU 0 (primeira GPU disponível)
@@ -33,7 +33,7 @@ weight_decay: 0.0005
 optimizer: SGD  # SGD geralmente melhor que Adam para YOLO
 
 # Training settings
-patience: 50        # Early stopping após 50 épocas sem melhoria
+patience: 15        # Early stopping após 15 épocas sem melhoria
 workers: 4          # Reduzido para estabilidade
 cache: false        # CRÍTICO: false para economia de RAM
 save: true          # Salvar checkpoints

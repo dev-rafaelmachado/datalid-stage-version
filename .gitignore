@@ -1,9 +1,18 @@
-# Python
+# ========================================
+# 🚀 Datalid 3.0 - GitIgnore
+# Sistema de Detecção de Datas de Validade
+# ========================================
+
+# ========================================
+# 🐍 Python
+# ========================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Distribution / packaging
 build/
 develop-eggs/
 dist/
@@ -21,81 +30,278 @@ wheels/
 *.egg
 .pip-cache/
 
-# Virtual environments
+# ========================================
+# 🌐 Virtual Environments
+# ========================================
 venv/
-ENV/
 env/
+ENV/
+.venv/
+.env
 
-# PyTorch
-# *.pth
-# *.pt
+# ========================================
+# 🤖 Machine Learning
+# ========================================
+
+# PyTorch models (ignore all .pt files)
+*.pt
+
+# YOLO weights (keep only configs)
 !configs/*.pt
 
-# Experiments (keep structure, ignore large files)
-# experiments/*/weights/*.pt
-experiments/*/runs/
+# TensorFlow/Keras
+*.h5
+*.hdf5
 
-# Datasets (raw data from Roboflow)
-datasets/raw/**/*
-!datasets/raw/.gitkeep
+# ONNX
+*.onnx
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
+# Pickle files
+*.pkl
+*.pickle
 
-# OS
-.DS_Store
-Thumbs.db
+# ========================================
+# 📊 Data & Datasets
+# ========================================
 
-# Logs
-*.log
-
-# MLflow / W&B
-mlruns/
-wandb/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Pytest & Coverage
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-*.cover
-
-# Temporary files
-*.tmp
-*.bak
-
-# experiments
-# Ignora tudo em data exceto as pastas raw e processed e seus .gitkeep
-/data/*
-!/data/raw/
-!/data/processed/
-!/data/raw/.gitkeep
-!/data/processed/.gitkeep
-/data/ocr_test/*
-!/data/ocr_test/.gitkeep
-# Ignora tudo dentro de data/raw e data/processed, exceto o .gitkeep
+# Raw data (Roboflow downloads)
 /data/raw/*
 !/data/raw/.gitkeep
+
+# Processed datasets
 /data/processed/*
 !/data/processed/.gitkeep
 
-# outputs
+# Fractions datasets
+/data/processed/fractions/
+
+# OCR test data
+/data/ocr_test/*
+!/data/ocr_test/.gitkeep
+
+# Synthetic data
+/data/ocr_synthetic/
+/data/ocr_finetuning/
+
+# Roboflow raw datasets
+datasets/raw/**/*
+!datasets/raw/.gitkeep
+
+# ========================================
+# 🧪 Experiments & Results
+# ========================================
+
+# Experiment outputs
+/experiments/*/weights/
+/experiments/*/runs/
+/experiments/*/images/
+/experiments/*/labels/
+/experiments/*/plots/
+
+# All image outputs
 experiments/**/*.jpg
 experiments/**/*.png
-
 outputs/**/*.jpg
 outputs/**/*.png
 
-*.pt
-*.csv
-*.json
-
+# Results directory
+/outputs/
 /e2e_results/
 
-/outputs/ocr_benchmarks/**/debug_images/*
+# OCR debug images
+/outputs/ocr_benchmarks/**/debug_images/
+
+# ========================================
+# 📈 Logs & Tracking
+# ========================================
+
+# Python logs
+*.log
+
+# TensorBoard
+logs/
+runs/
+
+# MLflow
+mlruns/
+
+# Weights & Biases
+wandb/
+
+# ========================================
+# 📝 Reports & Exports
+# ========================================
+
+# CSV exports
+*.csv
+
+# JSON outputs (keep configs)
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!**/config*.json
+!**/.vscode/*.json
+
+# ========================================
+# 🧪 Testing
+# ========================================
+
+# Pytest
+.pytest_cache/
+.tox/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+*.cover
+.hypothesis/
+
+# ========================================
+# 📓 Jupyter Notebooks
+# ========================================
+.ipynb_checkpoints/
+*.ipynb
+
+# Keep example notebooks
+!examples/*.ipynb
+!notebooks/examples/*.ipynb
+
+# ========================================
+# 🛠️ IDEs & Editors
+# ========================================
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ========================================
+# 💻 Operating Systems
+# ========================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# Linux
+.directory
+.Trash-*
+
+# ========================================
+# 🌐 API & Uploads
+# ========================================
+
+# Temporary uploads
+/uploads/
+/temp/
+/tmp/
+
+# API keys and secrets
+.env.local
+.env.production
+secrets.yaml
+credentials.json
+
+# ========================================
+# 📦 Downloaded Models
+# ========================================
+
+# Pre-trained models
+/models/*/
+!/models/.gitkeep
+
+# HuggingFace cache
+.cache/huggingface/
+
+# Torch hub
+.cache/torch/
+
+# ========================================
+# 🗂️ Temporary Files
+# ========================================
+*.tmp
+*.bak
+*.swp
+*.temp
+*~
+
+# ========================================
+# 📋 Documentation (generated)
+# ========================================
+docs/_build/
+docs/.doctrees/
+site/
+
+# ========================================
+# 🔧 Build & Dependencies
+# ========================================
+
+# Node modules (if using JS tools)
+node_modules/
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
+
+# C extensions
+*.so
+*.dylib
+*.dll
+
+# ========================================
+# 📊 Specific Project Files
+# ========================================
+
+# Docker
+.dockerignore
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# ========================================
+# ✅ Keep These Directories (Structure Only)
+# ========================================
+
+# Force keep important .gitkeep files
+!**/.gitkeep
+
+# Keep config files
+!config/**/*.yaml
+!config/**/*.yml
+!config/**/*.json
+
+# Keep documentation
+!docs/**/*.md
+!*.md
+!README.md
+!CHANGELOG.md
+!LICENSE

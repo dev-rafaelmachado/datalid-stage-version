@@ -52,3 +52,6 @@ loguru>=0.7.0
 
 # Progress
 tqdm>=4.65.0
+
+# Evaluation (optional - for COCO JSON export)
+# faster-coco-eval>=1.6.7  # Uncomment to enable JSON export in test/val

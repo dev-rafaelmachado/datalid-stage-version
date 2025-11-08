@@ -4,13 +4,16 @@ Verifica se PyTorch consegue acessar a GPU.
 """
 
 import platform
-import torch
 import sys
 from pathlib import Path
 
+import torch
+
 # Adicionar root ao PYTHONPATH
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 
 def print_header():

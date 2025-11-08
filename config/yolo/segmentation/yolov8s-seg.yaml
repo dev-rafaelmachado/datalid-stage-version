@@ -15,7 +15,7 @@ model: yolov8s-seg.pt  # Small Segmentation - bom equilíbrio
 task: segment
 
 # Training hyperparameters
-epochs: 120    # Mais épocas para modelo maior
+epochs: 100    # Mais épocas para modelo maior
 imgsz: 640     # Resolução padrão YOLO
 batch: 6       # Batch reduzido (segmentação + modelo maior)
 device: 0      # GPU 0 (primeira GPU disponível)
@@ -30,7 +30,7 @@ weight_decay: 0.0005
 optimizer: SGD  # SGD geralmente melhor que Adam para YOLO
 
 # Training settings
-patience: 40        # Early stopping após 40 épocas sem melhoria
+patience: 10        # Early stopping após 10 épocas sem melhoria
 workers: 4          # Número de workers (ajustado para Windows)
 cache: false        # false = menos RAM
 save: true          # Salvar checkpoints

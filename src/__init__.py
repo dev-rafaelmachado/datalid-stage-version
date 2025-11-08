@@ -7,14 +7,14 @@ __version__ = "3.0.0"
 __author__ = "Datalid Team"
 
 # Importações principais
-from . import core
-from . import data
-from . import yolo
-from . import utils
+from . import api, core, data, ocr, pipeline, utils, yolo
 
 __all__ = [
     'core',
     'data', 
     'yolo',
+    'ocr',
+    'pipeline',
+    'api',
     'utils'
 ]

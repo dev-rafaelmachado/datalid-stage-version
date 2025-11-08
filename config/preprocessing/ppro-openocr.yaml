@@ -1,4 +1,4 @@
-name: ppro-openocr-sharp
+name: ppro-openocr-sharp-deblur
 
 steps:
   # 1. Normalização suave de iluminação
@@ -9,46 +9,53 @@ steps:
   # 2. Resize MAIOR (OpenOCR funciona melhor com imagens grandes)
   resize:
     enabled: true
-    min_height: 96   # ⬆️ DOBROU de 56 → 96 (imagens maiores = mais detalhes)
-    min_width: 384   # ⬆️ DOBROU de 224 → 384
-    max_height: 512  # ✨ NOVO: limita pra não explodir memória
-    max_width: 2048  # ✨ NOVO: limita largura máxima
+    min_height: 96
+    min_width: 384
+    max_height: 512
+    max_width: 2048
     maintain_aspect: true
-    interpolation: lanczos  # Mantém - melhor qualidade
+    interpolation: lanczos
   
-  # 3. Deskew
+  # 3. Deskew moderado
   deskew:
     enabled: true
     method: contours
     max_angle: 360
   
-  # 4. CLAHE - DESABILITADO (estava piorando)
+  # 4. CLAHE - DESABILITADO
   clahe:
-    enabled: false
-    clip_limit: 1.5
-    tile_grid_size: [4, 4]
+    enabled: true
+    clip_limit: 1.8
+    tile_grid_size: [8, 8]
     color_space: lab
   
-  # 5. Sharpen MAIS FORTE (reduz blur + aguça texto)
+  deblur:
+    enabled: true
+    method: richardson_lucy  # 'wiener' (suave) ou 'richardson_lucy' (agressivo)
+    kernel_size: 5  # Tamanho do kernel de desfoque estimado
+    iterations: 10  # Número de iterações (apenas para richardson_lucy)
+    snr: 25         # Signal-to-Noise Ratio (apenas para wiener)
+  
+  # 6. Sharpen FORTE (após deblur para aguçar bordas)
   sharpen:
     enabled: true
     method: unsharp_mask
-    strength: 0.7  # ⬆️ AUMENTADO de 0.3 → 0.7 (mais nítido)
-    radius: 1.0    # ⬆️ AUMENTADO de 0.5 → 1.0 (alcance maior)
-    threshold: 1   # ⬇️ REDUZIDO de 2 → 1 (sharpeia mais áreas)
+    strength: 0.9
+    radius: 1.2
+    threshold: 1
   
-  # 6. Denoising DESABILITADO (estava borrando)
+  # 7. Denoising
   denoise:
-    enabled: false  # ❌ DESATIVADO - bilateral borra detalhes
+    enabled: true
     method: bilateral
     d: 3
     sigma_color: 20
     sigma_space: 20
   
-  # 7. Padding generoso (imagens maiores = mais margem)
+  # 8. Padding generoso
   padding:
     enabled: true
-    size: 20  # ⬆️ AUMENTADO de 12 → 20 (proporcional ao tamanho)
+    size: 20
     color: [255, 255, 255]
   
   # DESABILITADOS
@@ -62,43 +69,51 @@ steps:
     enabled: false
 
 # ============================================================================
-# Mudanças para MAIOR + MAIS NÍTIDO:
+# NOVO: Técnicas de DEBLUR
 # ============================================================================
 # 
-# 🔍 IMAGEM MAIOR:
-# ✅ min_height: 56 → 96 (+71% maior)
-# ✅ min_width: 224 → 384 (+71% maior)
-# ✅ max_height: 512 (novo - evita imagens gigantes)
-# ✅ max_width: 2048 (novo - evita imagens gigantes)
+# 🔍 Métodos disponíveis:
 # 
-# 🔪 MENOS BLUR:
-# ❌ denoise: DESABILITADO (bilateral borra números pequenos)
-# ✅ sharpen strength: 0.3 → 0.7 (mais nítido)
-# ✅ sharpen radius: 0.5 → 1.0 (alcance maior)
-# ✅ sharpen threshold: 2 → 1 (sharpeia mais áreas)
+# 1. WIENER FILTER (recomendado para maioria dos casos)
+#    - Suave, não cria artefatos
+#    - Bom para desfoque moderado (motion blur, leve out-of-focus)
+#    - Parâmetros: kernel_size (3-7), snr (15-50)
 # 
-# 🎯 OUTROS AJUSTES:
-# ✅ deskew max_angle: 360 → 15° (menos distorção)
-# ✅ padding: 12 → 20 (proporcional ao tamanho maior)
-# ❌ CLAHE: continua desabilitado (estava piorando)
+# 2. RICHARDSON-LUCY DECONVOLUTION (para desfoque severo)
+#    - Mais agressivo, pode criar halos se mal configurado
+#    - Excelente para out-of-focus severo
+#    - Parâmetros: kernel_size (5-11), iterations (5-30)
+# 
+# 3. BLIND DECONVOLUTION (futuro - estima kernel automaticamente)
+#    - Mais lento mas não precisa saber tipo de desfoque
 # 
 # ============================================================================
-# LÓGICA:
+# CONFIGURAÇÕES POR CENÁRIO:
 # ============================================================================
 # 
-# Por que MAIOR é melhor:
-# - OpenOCR é CNN-based: mais pixels = mais features extraídas
-# - Seus crops são pequenos: upscale ajuda o modelo a "ver" melhor
-# - Lanczos interpolation mantém qualidade no upscale
+# 📷 DESFOQUE LEVE (foto tremida, câmera instável):
+# deblur:
+#   method: wiener
+#   kernel_size: 3
+#   snr: 30
 # 
-# Por que DESABILITAR denoise:
-# - Bilateral blur com d=3 ainda borra caracteres finos (1, /, :, .)
-# - OpenOCR já tem robustez interna a ruído
-# - Melhor ter ruído do que blur
+# 📷 DESFOQUE MODERADO (motion blur, out-of-focus leve):
+# deblur:
+#   method: wiener
+#   kernel_size: 5
+#   snr: 25
 # 
-# Por que AUMENTAR sharpen:
-# - Compensa qualquer blur residual do resize
-# - Aguça bordas de números borrados em JPG comprimido
-# - Radius 1.0 + threshold 1 = mais agressivo mas controlado
+# 📷 DESFOQUE SEVERO (muito fora de foco):
+# deblur:
+#   method: richardson_lucy
+#   kernel_size: 7
+#   iterations: 15
+# 
+# 📷 DESFOQUE MISTO (alguns crops nítidos, outros borrados):
+# deblur:
+#   method: wiener
+#   kernel_size: 5
+#   snr: 25
+#   adaptive: true  # Aplica só se detectar blur (futuro)
 # 
 # ============================================================================

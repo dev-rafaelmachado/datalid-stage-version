@@ -5,12 +5,15 @@ Configura e converte logs YOLO para TensorBoard.
 
 import sys
 from pathlib import Path
+
 import pandas as pd
 from loguru import logger
 
 # Adicionar src ao path
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.append(str(ROOT))
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -111,7 +114,7 @@ def setup_all_experiments(force: bool = False):
     Args:
         force: Se True, reconverte mesmo que já existam logs
     """
-    experiments_dir = ROOT / "experiments"
+    experiments_dir = ROOT_DIR / "experiments"
 
     if not experiments_dir.exists():
         logger.warning("Diretório de experimentos não encontrado!")
@@ -151,7 +154,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.experiment:
-        exp_dir = ROOT / "experiments" / args.experiment
+        exp_dir = ROOT_DIR / "experiments" / args.experiment
         if exp_dir.exists():
             convert_yolo_results_to_tensorboard(exp_dir, force=args.force)
         else:

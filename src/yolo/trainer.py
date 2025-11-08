@@ -3,33 +3,32 @@
 Sistema de treinamento com monitoramento e métricas.
 """
 
-from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, Callable
-import time
 import json
-from datetime import datetime, timedelta
+import time
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
 import yaml
 from loguru import logger
 
 try:
+    from torch.utils.tensorboard import SummaryWriter
     from ultralytics import YOLO
     from ultralytics.utils.callbacks import add_integration_callbacks
-    from torch.utils.tensorboard import SummaryWriter
 except ImportError:
     logger.error(
         "Ultralytics ou TensorBoard não instalado. Instale com: pip install ultralytics tensorboard")
     raise
 
 from ..core.config import config
-from ..core.exceptions import (
-    TrainingError, ModelNotFoundError, DatasetNotFoundError,
-    GPUNotAvailableError, InsufficientMemoryError
-)
-from .config import YOLOConfig, TrainingConfig
-from .utils import validate_gpu, optimize_batch_size, create_data_yaml
+from ..core.exceptions import (DatasetNotFoundError, GPUNotAvailableError,
+                               InsufficientMemoryError, ModelNotFoundError,
+                               TrainingError)
+from .config import TrainingConfig, YOLOConfig
+from .utils import create_data_yaml, optimize_batch_size, validate_gpu
 
 
 @dataclass
@@ -56,6 +55,9 @@ class TrainingMetrics:
     best_epoch: int = 0
     best_map50: float = 0.0
     best_map50_95: float = 0.0
+
+    # Métricas do conjunto de teste
+    test_results: Optional[Dict[str, float]] = None
 
     # Hardware
     gpu_memory_used: List[float] = field(default_factory=list)
@@ -135,6 +137,7 @@ class TrainingMetrics:
             'best_epoch': self.best_epoch,
             'best_map50': self.best_map50,
             'best_map50_95': self.best_map50_95,
+            'test_results': self.test_results,
             'gpu_memory_used': self.gpu_memory_used,
             'training_speed': self.training_speed,
             'duration_seconds': self.duration.total_seconds() if self.duration else None
@@ -234,6 +237,7 @@ class YOLOTrainer:
         self,
         data_path: Union[str, Path],
         resume: bool = False,
+        test_after_training: bool = True,
         **overrides
     ) -> TrainingMetrics:
         """
@@ -242,6 +246,7 @@ class YOLOTrainer:
         Args:
             data_path: Caminho do dataset (pasta com data.yaml)
             resume: Continuar treinamento anterior
+            test_after_training: Executar teste no conjunto de teste após treino
             **overrides: Sobrescrever configurações
 
         Returns:
@@ -377,6 +382,26 @@ class YOLOTrainer:
             logger.success("✅ Treinamento concluído!")
             self._log_training_results()
 
+            # Executar teste no conjunto de teste
+            if test_after_training:
+                logger.info("=" * 70)
+                logger.info("🧪 Executando avaliação final no conjunto de TESTE...")
+                logger.info("=" * 70)
+                try:
+                    test_metrics = self.test_model(data_path)
+                    self.metrics.test_results = test_metrics
+                    self._log_test_results(test_metrics)
+                    
+                    # Salvar resultados do teste separadamente
+                    test_results_path = Path(
+                        train_args['project']) / train_args.get('name', 'exp') / 'test_results.json'
+                    with open(test_results_path, 'w', encoding='utf-8') as f:
+                        json.dump(test_metrics, f, indent=2, ensure_ascii=False)
+                    logger.info(f"📄 Resultados do teste salvos em: {test_results_path}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Erro ao executar teste: {str(e)}")
+                    logger.warning("Continuando sem métricas de teste...")
+
             # Salvar métricas
             metrics_path = Path(
                 train_args['project']) / train_args.get('name', 'exp') / 'metrics.json'
@@ -467,6 +492,128 @@ class YOLOTrainer:
         if self.metrics.gpu_memory_used:
             max_gpu_mem = max(self.metrics.gpu_memory_used)
             logger.info(f"  • GPU Memory pico: {max_gpu_mem:.1f}GB")
+
+    def test_model(
+        self,
+        data_path: Union[str, Path],
+        split: str = 'test'
+    ) -> Dict[str, float]:
+        """
+        Testa modelo no conjunto de teste.
+        
+        Args:
+            data_path: Caminho do dataset
+            split: Split para testar ('test' por padrão)
+            
+        Returns:
+            Dicionário com métricas do teste
+        """
+        if not self.model:
+            raise ModelNotFoundError("Modelo não treinado")
+
+        logger.info(f"🧪 Testando modelo no split '{split}'...")
+
+        # Preparar dataset
+        data_yaml = self.prepare_dataset(data_path)
+
+        # Executar validação no split de teste
+        # Tentar com save_json, se falhar (faster_coco_eval não disponível), usar sem
+        try:
+            results = self.model.val(
+                data=str(data_yaml),
+                split=split,
+                plots=True,
+                save_json=True,
+                verbose=False
+            )
+        except ModuleNotFoundError as e:
+            if 'faster_coco_eval' in str(e):
+                logger.warning("⚠️ faster_coco_eval não disponível, continuando sem save_json")
+                logger.info("💡 Para habilitar: pip install faster-coco-eval")
+                results = self.model.val(
+                    data=str(data_yaml),
+                    split=split,
+                    plots=True,
+                    save_json=False,
+                    verbose=False
+                )
+            else:
+                raise
+
+        # Extrair métricas
+        test_metrics = {
+            'split': split,
+        }
+
+        # Métricas de detecção (box)
+        if hasattr(results, 'box') and results.box is not None:
+            test_metrics.update({
+                'box_mAP50': float(results.box.map50),
+                'box_mAP50_95': float(results.box.map),
+                'box_mAP75': float(results.box.map75) if hasattr(results.box, 'map75') else None,
+                'box_precision': float(results.box.p),
+                'box_recall': float(results.box.r),
+            })
+            
+            # Calcular F1
+            p, r = results.box.p, results.box.r
+            if p > 0 and r > 0:
+                test_metrics['box_f1'] = float(2 * p * r / (p + r))
+            else:
+                test_metrics['box_f1'] = 0.0
+
+        # Métricas de segmentação (mask)
+        if hasattr(results, 'masks') and results.masks is not None:
+            test_metrics.update({
+                'mask_mAP50': float(results.masks.map50),
+                'mask_mAP50_95': float(results.masks.map),
+                'mask_mAP75': float(results.masks.map75) if hasattr(results.masks, 'map75') else None,
+                'mask_precision': float(results.masks.p),
+                'mask_recall': float(results.masks.r),
+            })
+            
+            # Calcular F1
+            p, r = results.masks.p, results.masks.r
+            if p > 0 and r > 0:
+                test_metrics['mask_f1'] = float(2 * p * r / (p + r))
+            else:
+                test_metrics['mask_f1'] = 0.0
+
+        logger.success(f"✅ Teste no split '{split}' concluído!")
+        return test_metrics
+
+    def _log_test_results(self, test_metrics: Dict[str, float]) -> None:
+        """
+        Log resultados do teste.
+        """
+        logger.info("=" * 70)
+        logger.info(f"🎯 MÉTRICAS DO CONJUNTO DE {test_metrics.get('split', 'TEST').upper()}")
+        logger.info("=" * 70)
+        
+        # Box metrics
+        if 'box_mAP50' in test_metrics:
+            logger.info("📦 Métricas de Detecção (Box):")
+            logger.info(f"  • mAP@0.5      : {test_metrics['box_mAP50']:.4f}")
+            logger.info(f"  • mAP@0.5:0.95 : {test_metrics['box_mAP50_95']:.4f}")
+            if test_metrics.get('box_mAP75') is not None:
+                logger.info(f"  • mAP@0.75     : {test_metrics['box_mAP75']:.4f}")
+            logger.info(f"  • Precision    : {test_metrics['box_precision']:.4f}")
+            logger.info(f"  • Recall       : {test_metrics['box_recall']:.4f}")
+            logger.info(f"  • F1-Score     : {test_metrics['box_f1']:.4f}")
+        
+        # Mask metrics
+        if 'mask_mAP50' in test_metrics:
+            logger.info("")
+            logger.info("🎭 Métricas de Segmentação (Mask):")
+            logger.info(f"  • mAP@0.5      : {test_metrics['mask_mAP50']:.4f}")
+            logger.info(f"  • mAP@0.5:0.95 : {test_metrics['mask_mAP50_95']:.4f}")
+            if test_metrics.get('mask_mAP75') is not None:
+                logger.info(f"  • mAP@0.75     : {test_metrics['mask_mAP75']:.4f}")
+            logger.info(f"  • Precision    : {test_metrics['mask_precision']:.4f}")
+            logger.info(f"  • Recall       : {test_metrics['mask_recall']:.4f}")
+            logger.info(f"  • F1-Score     : {test_metrics['mask_f1']:.4f}")
+        
+        logger.info("=" * 70)
 
     def resume_training(
         self,

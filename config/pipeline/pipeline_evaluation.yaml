@@ -8,7 +8,7 @@ description: "Avaliação end-to-end da pipeline: YOLO → OCR → Parsing"
 # Dataset de Avaliação
 dataset:
   # Caminho para as imagens de teste
-  images_dir: data/raw/TCC_DATESET_V2-2/train/images
+  images_dir: data/raw/TCC_DATESET_V2-6/train/images
   
   # Ground truth com labels finais (datas extraídas)
   ground_truth: data/evaluation/ground_truth.json

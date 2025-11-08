@@ -3,7 +3,7 @@ name: expiry_date_full_pipeline
 
 # Detecção (YOLO)
 detection:
-  model_path: experiments\yolov8m_seg_best\weights\best.pt
+  model_path: experiments\975\yolov8m_seg_best\weights\best.pt
   confidence: 0.25
   iou: 0.7
   device: 0
@@ -12,4 +12,4 @@ detection:
 ocr:
   engine: openocr
   config: config/ocr/openocr.yaml
-  preprocessing: config/preprocessing/ppro-openocr-medium.yaml
+  preprocessing: config/preprocessing/ppro-openocr.yaml

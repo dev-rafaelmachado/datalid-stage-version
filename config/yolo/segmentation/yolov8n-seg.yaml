@@ -30,7 +30,7 @@ weight_decay: 0.0005
 optimizer: SGD  # SGD geralmente melhor que Adam para YOLO
 
 # Training settings
-patience: 50        # Early stopping após 50 épocas sem melhoria
+patience: 10        # Early stopping após 10 épocas sem melhoria
 workers: 4          # Número de workers (ajustado para Windows)
 cache: false        # false = menos RAM, true = treinamento mais rápido
 save: true          # Salvar checkpoints

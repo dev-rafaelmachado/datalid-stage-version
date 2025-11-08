@@ -4,6 +4,7 @@ Define todas as constantes usadas no projeto.
 """
 
 from typing import Dict, List, Tuple
+
 import cv2
 
 # ========================================

@@ -6,8 +6,10 @@ import sys
 from pathlib import Path
 
 # Adicionar src ao path
-root_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(root_dir))
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 if __name__ == "__main__":
     import uvicorn

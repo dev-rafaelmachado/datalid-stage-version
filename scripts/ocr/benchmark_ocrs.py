@@ -15,7 +15,10 @@ import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
 
-sys.path.append(str(Path(__file__).parent.parent.parent))
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR.parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from src.ocr.config import load_ocr_config, load_preprocessing_config
 from src.ocr.engines.easyocr import EasyOCREngine
@@ -352,6 +355,9 @@ def main():
             else:
                 print(f"  ⚠️  Engine desconhecido: {engine_name}")
                 continue
+            
+            # Inicializar o engine (carregar modelo)
+            engine.initialize()
             
             engines.append(engine)
             print(f"  ✅ {engine_name} inicializado")
