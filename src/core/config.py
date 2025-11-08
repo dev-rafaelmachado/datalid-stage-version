@@ -5,9 +5,10 @@ Centraliza todas as configurações do projeto.
 
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-from pydantic import Field
-from pydantic_settings import BaseSettings
+
 import yaml
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Config(BaseSettings):
@@ -186,9 +187,13 @@ class Config(BaseSettings):
     FONT_SIZE: float = 0.8
     FONT_COLOR: Tuple[int, int, int] = (255, 255, 255)  # Branco
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        env_prefix="CORE_",  # Use CORE_ prefix to avoid conflicts with API
+        case_sensitive=False,
+        extra="ignore"  # Ignore extra env vars not defined in schema
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

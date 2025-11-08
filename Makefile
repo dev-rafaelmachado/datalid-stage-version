@@ -19,7 +19,6 @@ EXPERIMENTS_DIR := experiments
 # FOCO: SEGMENTAÇÃO POLIGONAL (padrão para o projeto)
 # DEFAULT_TASKS 
 
-
 # Cores para output
 RED := \033[31m
 GREEN := \033[32m
@@ -644,159 +643,101 @@ evaluate-pipeline-quick: pipeline-eval-quick
 evaluate-pipeline-full: pipeline-eval-full
 
 # ========================================
-# 🚀 API E DEPLOY
+# 🌐 API REST
 # ========================================
 
-.PHONY: run-api build-docker run-docker
-run-api:
-	@echo "$(GREEN)🌐 Iniciando API de desenvolvimento...$(RESET)"
-	@echo "$(YELLOW)💡 Acesse: http://localhost:8000$(RESET)"
-	uvicorn src.api.main:app --reload --host 0.0.0.0 --port 8000
+# Iniciar API
+api-run:
+	@echo "$(CYAN)🚀 Iniciando API Datalid...$(RESET)"
+	$(PYTHON) scripts/api/run_api.py
 
-build-docker:
-	@echo "$(BLUE)🐳 Construindo imagem Docker...$(RESET)"
-	docker build -t $(PROJECT_NAME):$(VERSION) .
+# Iniciar API com auto-reload (desenvolvimento)
+api-dev:
+	@echo "$(CYAN)🔧 Iniciando API em modo desenvolvimento...$(RESET)"
+	python scripts/api/start_server.py --dev
 
-run-docker:
-	@echo "$(BLUE)🐳 Executando container Docker...$(RESET)"
-	docker run -p 8000:8000 $(PROJECT_NAME):$(VERSION)
+# Iniciar API com múltiplos workers (produção)
+api-start:
+	@echo "$(GREEN)🚀 Iniciando API em modo produção...$(RESET)"
+	python scripts/api/start_server.py --host 0.0.0.0 --port 8000
 
-# ========================================
-# 🧹 LIMPEZA
-# ========================================
+# Testar API
+api-test:
+	@echo "$(YELLOW)🧪 Testando API...$(RESET)"
+	python scripts/api/test_api.py
 
-.PHONY: clean clean-data clean-models clean-all
-clean:
-	@echo "$(RED)🧹 Limpando arquivos temporários...$(RESET)"
-	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -delete
-	find . -type d -name "*.egg-info" -exec rm -rf {} +
-	find . -type f -name ".coverage" -delete
-	find . -type d -name "htmlcov" -exec rm -rf {} +
-	find . -type d -name ".pytest_cache" -exec rm -rf {} +
+# Executar exemplos da API
+api-examples:
+	@echo "$(CYAN)📚 Executando exemplos da API...$(RESET)"
+	python examples/api_usage.py
 
-clean-data:
-	@echo "$(RED)🧹 Removendo dados processados...$(RESET)"
-	rm -rf $(DATA_DIR)/processed/*
-	@echo "$(YELLOW)⚠️ Dados RAW mantidos em $(DATA_DIR)/raw$(RESET)"
+# Abrir documentação da API
+api-docs:
+	@echo "📚 Documentação disponível em:"
+	@echo "  - Swagger UI: http://localhost:8000/docs"
+	@echo "  - ReDoc: http://localhost:8000/redoc"
+	@echo "  - OpenAPI: http://localhost:8000/openapi.json"
 
-clean-models:
-	@echo "$(RED)🧹 Removendo modelos treinados...$(RESET)"
-	rm -rf $(EXPERIMENTS_DIR)/*
-	rm -rf runs/
+# Testar cliente Python
+api-client:
+	python -c "from scripts.api.client import DatalidClient; client = DatalidClient(); print('✅ Cliente OK' if client.is_ready() else '❌ API offline')"
 
-clean-all: clean clean-data clean-models
-	@echo "$(RED)🧹 Limpeza completa realizada!$(RESET)"
+# Ver métricas da API
+api-metrics:
+	curl http://localhost:8000/v2/metrics | python -m json.tool
 
-# Limpeza específica para experimentos de learning curves
-.PHONY: clean-learning-curves
+# Health check da API
+api-health:
+	curl http://localhost:8000/health | python -m json.tool
 
-clean-learning-curves:
-	@echo "$(YELLOW)🧹 Removendo experimentos de learning curves...$(RESET)"
-	@if exist "$(EXPERIMENTS_DIR)\learning_curve_*" rmdir /s /q "$(EXPERIMENTS_DIR)\learning_curve_*"
-	@if exist "outputs\learning_curves" rmdir /s /q "outputs\learning_curves"
-	@echo "$(GREEN)✅ Experimentos de learning curves removidos!$(RESET)"
+# Docker build
+api-docker-build:
+	@echo "$(CYAN)🐳 Construindo imagem Docker...$(RESET)"
+	docker build -t datalid-api:latest .
 
-# ========================================
-# 🎯 COMANDOS DE CONVENIÊNCIA
-# ========================================
+# Docker run
+api-docker-run:
+	@echo "$(GREEN)🐳 Executando API no Docker...$(RESET)"
+	docker run -p 8000:8000 \
+		-v $(PWD)/experiments:/app/experiments:ro \
+		-v $(PWD)/data:/app/data:ro \
+		-v $(PWD)/logs:/app/logs \
+		datalid-api:latest
 
-.PHONY: setup quick-start full-pipeline
+# Docker Compose up
+api-compose-up:
+	@echo "$(GREEN)🐳 Iniciando serviços com Docker Compose...$(RESET)"
+	docker-compose up -d
 
-setup: install-all test-cuda validate-env
-	@echo "$(GREEN)🎉 Setup completo! Sistema pronto para uso.$(RESET)"
-	@echo "$(CYAN)📋 Próximos passos sugeridos (SEGMENTAÇÃO):$(RESET)"
-	@echo "  1. make process INPUT=data/raw/dataset  # Processar dados"
-	@echo "  2. make train-quick                      # Teste rápido"
-	@echo "  3. make train-final-small                # Treinamento final"
+# Docker Compose down
+api-compose-down:
+	@echo "$(YELLOW)🐳 Parando serviços Docker Compose...$(RESET)"
+	docker-compose down
 
-quick-start: setup quick-process train-quick
-	@echo "$(GREEN)🚀 Quick start completo - SEGMENTAÇÃO POLIGONAL!$(RESET)"
-	@echo "$(CYAN)Próximos passos:$(RESET)"
-	@echo "  1. make tensorboard      # Ver métricas"
-	@echo "  2. make validate-segment # Validar dataset"
-	@echo "  3. make train-final-small # Treinamento final"
+# Docker Compose logs
+api-compose-logs:
+	@echo "$(CYAN)📋 Logs do Docker Compose...$(RESET)"
+	docker-compose logs -f
 
-quick-start-detect: setup quick-detect train-detect-small
-	@echo "$(GREEN)🚀 Quick start completo - DETECÇÃO (bbox)!$(RESET)"
-	@echo "$(CYAN)Próximos passos:$(RESET)"
-	@echo "  1. make tensorboard     # Ver métricas"
-	@echo "  2. make validate-detect # Validar dataset"
+# Abrir documentação da API
+api-docs:
+	@echo "$(CYAN)📚 Abrindo documentação da API...$(RESET)"
+	@echo "Swagger UI: http://localhost:8000/docs"
+	@echo "ReDoc: http://localhost:8000/redoc"
 
-full-pipeline: setup research-process train-nano train-small train-medium
-	@echo "$(GREEN)🎯 Pipeline completo executado - SEGMENTAÇÃO POLIGONAL!$(RESET)"
-	@echo "$(CYAN)Resultados em: $(EXPERIMENTS_DIR)$(RESET)"
-	@echo "$(YELLOW)📊 Use 'make compare-final' para comparar modelos$(RESET)"
-
-full-pipeline-detect: setup quick-detect train-detect-nano train-detect-small train-detect-medium
-	@echo "$(GREEN)🎯 Pipeline completo executado - DETECÇÃO (bbox)!$(RESET)"
-	@echo "$(CYAN)Resultados em: $(EXPERIMENTS_DIR)$(RESET)"
-
-# ========================================
-# 📊 WORKFLOW DE LEARNING CURVES
-# ========================================
-
-# Workflow completo para análise de curvas de aprendizado
-.PHONY: workflow-learning-curves workflow-learning-curves-quick
-
-workflow-learning-curves:
-	@echo "$(MAGENTA)📊 WORKFLOW COMPLETO - ANÁLISE DE CURVAS DE APRENDIZADO$(RESET)"
-	@echo "$(CYAN)Este workflow analisa o aprendizado dos modelos com diferentes frações de dados$(RESET)"
-	@echo ""
-	@echo "$(BLUE)1/4 📊 Criando datasets fracionados (25%%, 50%%, 75%%, 100%%)...$(RESET)"
-	make process-fractions
-	@echo ""
-	@echo "$(BLUE)2/4 🤖 Treinando TODOS os modelos em todas as frações...$(RESET)"
-	@echo "$(YELLOW)⚠️  ATENÇÃO: Este processo pode levar MUITO tempo!$(RESET)"
-	make train-all-fractions
-	@echo ""
-	@echo "$(BLUE)3/4 📈 Analisando e comparando resultados...$(RESET)"
-	make compare-learning-curves
-	@echo ""
-	@echo "$(BLUE)4/4 ✅ Workflow concluído!$(RESET)"
-	@echo "$(GREEN)🎉 ANÁLISE DE CURVAS DE APRENDIZADO CONCLUÍDA!$(RESET)"
-	@echo "$(YELLOW)📊 Datasets fracionados: $(FRACTIONS_DIR)$(RESET)"
-	@echo "$(YELLOW)🤖 Experimentos: $(EXPERIMENTS_DIR)/learning_curve_*$(RESET)"
-	@echo "$(YELLOW)📈 Resultados: outputs/learning_curves/$(RESET)"
-
-# Workflow rápido (apenas nano model)
-workflow-learning-curves-quick:
-	@echo "$(MAGENTA)📊 WORKFLOW RÁPIDO - LEARNING CURVES (apenas YOLOv8n-seg)$(RESET)"
-	@echo ""
-	@echo "$(BLUE)1/3 📊 Criando datasets fracionados...$(RESET)"
-	make process-fractions
-	@echo ""
-	@echo "$(BLUE)2/3 🤖 Treinando YOLOv8n-seg em todas as frações...$(RESET)"
-	make train-fractions-nano
-	@echo ""
-	@echo "$(BLUE)3/3 📈 Analisando resultados...$(RESET)"
-	make compare-learning-curves
-	@echo ""
-	@echo "$(GREEN)🎉 ANÁLISE RÁPIDA CONCLUÍDA!$(RESET)"
-	@echo "$(YELLOW)📈 Resultados: outputs/learning_curves/$(RESET)"
+# Limpar uploads temporários
+api-clean:
+	@echo "$(YELLOW)🧹 Limpando uploads temporários...$(RESET)"
+	rm -rf uploads/*
 
 # ========================================
-# 📝 INFORMAÇÕES
+# 🔐 API - Segurança
 # ========================================
 
-.PHONY: info status version
-info:
-	@echo "$(CYAN)📋 Informações do Projeto$(RESET)"
-	@echo "$(CYAN)========================$(RESET)"
-	@echo "Nome: $(PROJECT_NAME)"
-	@echo "Versão: $(VERSION)"
-	@echo "Python: $(shell $(PYTHON) --version)"
-	@echo "Diretório: $(shell pwd)"
-
-status:
-	@echo "$(CYAN)📊 Status do Sistema$(RESET)"
-	@echo "$(CYAN)==================$(RESET)"
-	@echo "Dados RAW: $(shell find $(DATA_DIR)/raw -name "*.jpg" -o -name "*.png" 2>/dev/null | wc -l) imagens"
-	@echo "Dados processados: $(shell find $(DATA_DIR)/processed -name "*.jpg" -o -name "*.png" 2>/dev/null | wc -l) imagens"
-	@echo "Experimentos: $(shell find $(EXPERIMENTS_DIR) -maxdepth 1 -type d 2>/dev/null | wc -l) runs"
-
-version:
-	@echo "$(PROJECT_NAME) v$(VERSION)"
+# Gerar API key
+api-generate-key:
+	@echo "$(CYAN)🔑 Gerando API Key...$(RESET)"
+	@$(PYTHON) -c "import secrets; print(secrets.token_urlsafe(32))"
 
 # ========================================
 # 🎛️ COMANDOS DO NOVO SISTEMA
@@ -1146,11 +1087,19 @@ prep-demo:
 
 # Testar pipeline com imagem de exemplo
 pipeline-test:
+ifndef IMAGE
 	@echo "$(MAGENTA)🚀 Testando pipeline completo...$(RESET)"
 	$(PYTHON) scripts/pipeline/test_full_pipeline.py \
 		--image data/sample.jpg \
 		--config $(CONFIG_DIR)/pipeline/full_pipeline.yaml
 	@echo "$(GREEN)✅ Pipeline testado!$(RESET)"
+else
+	@echo "$(MAGENTA)🚀 Testando pipeline completo com imagem customizada...$(RESET)"
+	$(PYTHON) scripts/pipeline/test_full_pipeline.py \
+		--image "$(IMAGE)" \
+		--config $(CONFIG_DIR)/pipeline/full_pipeline.yaml
+	@echo "$(GREEN)✅ Pipeline testado!$(RESET)"
+endif
 
 # Executar pipeline em uma imagem específica
 pipeline-run:
@@ -1296,7 +1245,7 @@ endif
 	make train-final-detect-medium
 	@echo "$(BLUE)4/5 📈 Gerando comparação...$(RESET)"
 	make compare-final
-	@echo "$(BLUE)5/5 📝 Gerando relatório...$(RESET)"
+	@echo "$(BLUE)5/6 📝 Gerando relatório...$(RESET)"
 	make generate-report
 	@echo "$(GREEN)🎉 WORKFLOW TCC DETECÇÃO CONCLUÍDO!$(RESET)"
 

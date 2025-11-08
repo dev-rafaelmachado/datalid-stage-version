@@ -106,7 +106,11 @@ def test_single_image(pipeline: FullPipeline, image_path: str, output_dir: str =
     yolo_viz = image.copy()
     for i, det in enumerate(detections):
         bbox = det['bbox']
-        x1, y1, x2, y2 = map(int, bbox)
+        # Extrair coordenadas do dicionário estruturado
+        x1 = int(bbox['x1'])
+        y1 = int(bbox['y1'])
+        x2 = int(bbox['x2'])
+        y2 = int(bbox['y2'])
         
         # Se tiver máscara, desenhar contorno da segmentação também
         if 'mask' in det and det['mask'] is not None:
@@ -132,9 +136,14 @@ def test_single_image(pipeline: FullPipeline, image_path: str, output_dir: str =
                 yolo_viz
             )
             
-            # Desenhar contorno da máscara
+            # Desenhar contorno da máscara (POLÍGONO)
             contours, _ = cv2.findContours(mask_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            cv2.drawContours(yolo_viz, contours, -1, (0, 255, 0), 2)
+            cv2.drawContours(yolo_viz, contours, -1, (0, 255, 0), 3)
+            
+            # Se tiver polígono no detection, desenhar os pontos
+            if 'polygon' in det and det['polygon']:
+                polygon_points = np.array(det['polygon'], dtype=np.int32).reshape((-1, 1, 2))
+                cv2.polylines(yolo_viz, [polygon_points], True, (255, 0, 255), 2)  # Magenta para polígono original
         
         # Desenhar bbox
         cv2.rectangle(yolo_viz, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -287,7 +296,11 @@ def test_single_image(pipeline: FullPipeline, image_path: str, output_dir: str =
     
     for date_result in dates:
         bbox = date_result['bbox']
-        x1, y1, x2, y2 = map(int, bbox)
+        # Extrair coordenadas do dicionário estruturado
+        x1 = int(bbox['x1'])
+        y1 = int(bbox['y1'])
+        x2 = int(bbox['x2'])
+        y2 = int(bbox['y2'])
         
         # Cor baseada na confiança
         conf = date_result['combined_confidence']

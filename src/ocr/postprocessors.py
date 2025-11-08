@@ -292,7 +292,7 @@ class DateParser:
 
         try:
             # 1. Limpeza ULTRA AGRESSIVA (v6)
-            cleaned_text = self._cleanup_v6(original_text)
+            cleaned_text = self._cleanup(original_text)
             
             # 2. Extrai TODAS as possíveis datas
             all_candidates = self._extract_all_dates(cleaned_text)
@@ -305,10 +305,10 @@ class DateParser:
             all_candidates = self._remove_duplicates(all_candidates)
             
             # 4. Analisa contexto e ajusta scores (v6: com proximidade)
-            all_candidates = self._analyze_context_v6(all_candidates, cleaned_text)
+            all_candidates = self._analyze_context(all_candidates, cleaned_text)
             
             # 5. Escolhe a melhor data com lógica ULTRA inteligente (v6)
-            best_date = self._choose_best_date_v6(all_candidates, cleaned_text)
+            best_date = self._choose_best_date(all_candidates, cleaned_text)
             
             if best_date:
                 date_obj, score, ptype, priority, _, _ = best_date  # v6: desempacota 6 elementos
@@ -321,7 +321,7 @@ class DateParser:
             logger.error(f"💥 ERRO: {e}", exc_info=True)
             return None, 0.0
 
-    def _cleanup_v6(self, text: str) -> str:
+    def _cleanup(self, text: str) -> str:
         """Limpeza ULTRA AGRESSIVA v7 BRUTAL do texto"""
         cleaned = text.upper()
         
@@ -605,7 +605,7 @@ class DateParser:
         except ValueError:
             return False
 
-    def _analyze_context_v6(self, candidates: List[Tuple], text: str) -> List[Tuple]:
+    def _analyze_context(self, candidates: List[Tuple], text: str) -> List[Tuple]:
         """Analisa contexto e ajusta scores - v7 BRUTAL: PENALIDADES MÁXIMAS"""
         text_upper = text.upper()
         
@@ -726,7 +726,7 @@ class DateParser:
         
         return list(unique.values())
 
-    def _choose_best_date_v6(self, candidates: List[Tuple], text: str) -> Optional[Tuple]:
+    def _choose_best_date(self, candidates: List[Tuple], text: str) -> Optional[Tuple]:
         """Escolhe a melhor data com lógica ULTRA inteligente v6"""
         if not candidates:
             return None
@@ -841,3 +841,5 @@ def test_parser():
 
 if __name__ == "__main__":
     test_parser()
+
+

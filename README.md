@@ -73,3 +73,83 @@ Veja [`docs/PIPELINE_EVALUATION_QUICK.md`](docs/PIPELINE_EVALUATION_QUICK.md) pa
 
 ## Licença
 - Verifique o arquivo de licença (adicionar se ausente).
+
+## 🌐 API REST
+
+**Nova funcionalidade!** Sistema completo de API REST para integração com outros aplicativos.
+
+### Início Rápido
+
+```bash
+# Instalar dependências
+pip install -r requirements.txt
+
+# Iniciar API
+make api-run
+# ou
+python scripts/api/run_api.py
+
+# API disponível em: http://localhost:8000
+```
+
+### Usar a API
+
+**Python:**
+```python
+from scripts.api.client import DatalidClient
+
+client = DatalidClient("http://localhost:8000")
+result = client.process_image("produto.jpg")
+print(f"Data: {result['best_date']['date']}")
+```
+
+**cURL:**
+```bash
+curl -X POST "http://localhost:8000/process" \
+  -F "file=@produto.jpg"
+```
+
+**JavaScript:**
+```javascript
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+
+fetch('http://localhost:8000/process', {
+  method: 'POST',
+  body: formData
+})
+.then(response => response.json())
+.then(data => console.log('Data:', data.best_date.date));
+```
+
+### Recursos
+
+- ✅ **Endpoints RESTful** com documentação automática (Swagger/ReDoc)
+- ✅ **Múltiplas Engines OCR** (OpenOCR, Tesseract, EasyOCR, PaddleOCR, PARSeq, TrOCR)
+- ✅ **Processamento em Lote** para múltiplas imagens
+- ✅ **Rate Limiting** e autenticação opcional
+- ✅ **Docker Support** para deploy fácil
+- ✅ **Cliente Python** incluído
+- ✅ **Frontend Demo** interativo
+
+### Documentação
+
+- [**Guia Rápido**](docs/API_QUICK_START.md) - Comece em 5 minutos
+- [**Documentação Completa**](docs/API.md) - Guia detalhado
+- **Swagger UI**: http://localhost:8000/docs (após iniciar)
+- **ReDoc**: http://localhost:8000/redoc
+
+### Comandos Make
+
+```bash
+make api-run          # Iniciar API
+make api-dev          # Modo desenvolvimento (auto-reload)
+make api-test         # Testar todos os endpoints
+make api-health       # Verificar status
+make api-docker-build # Build Docker
+make api-compose-up   # Docker Compose
+```
+
+### Frontend Demo
+
+Abra `examples/frontend_demo.html` no navegador para interface web interativa.

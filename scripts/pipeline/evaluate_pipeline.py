@@ -686,7 +686,7 @@ class PipelineEvaluator:
         return dp[m][n] / n
     
     def _calculate_metrics_summary(self) -> Dict[str, Any]:
-        """Calcula métricas agregadas."""
+        """Calcula métricas agregadas com estatísticas detalhadas."""
         if not self.results:
             return {}
         
@@ -705,13 +705,138 @@ class PipelineEvaluator:
             'success_rate': float((successful / total * 100) if total > 0 else 0)
         }
         
-        # Filtrar apenas sucessos para métricas
+        # ========================================
+        # 📊 ESTATÍSTICAS DETALHADAS POR ETAPA
+        # ========================================
+        
+        # 1. ANÁLISE DE DETECÇÃO (YOLO)
+        no_detections = int((df['num_detections'] == 0).sum()) if 'num_detections' in df.columns else 0
+        single_detection = int((df['num_detections'] == 1).sum()) if 'num_detections' in df.columns else 0
+        multiple_detections = int((df['num_detections'] > 1).sum()) if 'num_detections' in df.columns else 0
+        
+        summary['detection_analysis'] = {
+            'no_detections': no_detections,
+            'no_detections_rate': float((no_detections / total * 100) if total > 0 else 0),
+            'single_detection': single_detection,
+            'single_detection_rate': float((single_detection / total * 100) if total > 0 else 0),
+            'multiple_detections': multiple_detections,
+            'multiple_detections_rate': float((multiple_detections / total * 100) if total > 0 else 0),
+            'avg_detections_per_image': float(df['num_detections'].mean()) if 'num_detections' in df.columns else 0.0,
+            'max_detections': int(df['num_detections'].max()) if 'num_detections' in df.columns else 0,
+            'avg_detection_confidence': float(df['avg_detection_confidence'].mean()) if 'avg_detection_confidence' in df.columns else 0.0
+        }
+        
+        # 2. ANÁLISE DE OCR
+        # Identificar textos vazios/problemáticos
+        empty_ocr = 0
+        whitespace_only = 0
+        short_text = 0  # Menos de 3 caracteres
+        
+        for result in self.results:
+            ocr_texts = result.get('ocr_texts', [])
+            predicted_text = result.get('predicted_text', '')
+            
+            # Verificar se OCR retornou vazio
+            if not ocr_texts or all(not text or not text.strip() for text in ocr_texts):
+                empty_ocr += 1
+            elif predicted_text and predicted_text.strip() == '':
+                whitespace_only += 1
+            elif predicted_text and len(predicted_text.strip()) < 3:
+                short_text += 1
+        
+        summary['ocr_analysis'] = {
+            'empty_ocr': empty_ocr,
+            'empty_ocr_rate': float((empty_ocr / total * 100) if total > 0 else 0),
+            'whitespace_only': whitespace_only,
+            'whitespace_only_rate': float((whitespace_only / total * 100) if total > 0 else 0),
+            'short_text': short_text,
+            'short_text_rate': float((short_text / total * 100) if total > 0 else 0),
+            'avg_ocr_confidence': float(df['ocr_confidences'].apply(lambda x: np.mean(x) if x else 0).mean()) if 'ocr_confidences' in df.columns else 0.0,
+            'low_confidence_ocr': int((df['ocr_confidences'].apply(lambda x: np.mean(x) if x else 0) < 0.5).sum()) if 'ocr_confidences' in df.columns else 0
+        }
+        
+        # 3. ANÁLISE DE PARSING DE DATAS
+        no_dates_found = int((df['num_dates_found'] == 0).sum()) if 'num_dates_found' in df.columns else 0
+        single_date = int((df['num_dates_found'] == 1).sum()) if 'num_dates_found' in df.columns else 0
+        multiple_dates = int((df['num_dates_found'] > 1).sum()) if 'num_dates_found' in df.columns else 0
+        
+        # Casos onde OCR retornou algo mas parser falhou
+        ocr_success_parser_fail = 0
+        ocr_fail_parser_success = 0  # Improvável mas possível
+        
+        # ✨ NOVA MÉTRICA: OCR com texto válido + Parser com data correta
+        ocr_valid_parser_correct = 0
+        ocr_valid_parser_correct_exact_match = 0
+        
+        for result in self.results:
+            predicted_text = result.get('predicted_text', '').strip()
+            has_ocr_text = predicted_text != ''
+            has_dates = result.get('num_dates_found', 0) > 0
+            exact_match = result.get('exact_match', 0.0) == 1.0
+            
+            if has_ocr_text and not has_dates:
+                ocr_success_parser_fail += 1
+            elif not has_ocr_text and has_dates:
+                ocr_fail_parser_success += 1
+            
+            # ✨ NOVA: OCR válido (não vazio) + Parser encontrou data
+            if has_ocr_text and has_dates:
+                ocr_valid_parser_correct += 1
+                # E se além de encontrar, acertou exatamente
+                if exact_match:
+                    ocr_valid_parser_correct_exact_match += 1
+        
+        summary['date_parsing_analysis'] = {
+            'no_dates_found': no_dates_found,
+            'no_dates_found_rate': float((no_dates_found / total * 100) if total > 0 else 0),
+            'single_date': single_date,
+            'single_date_rate': float((single_date / total * 100) if total > 0 else 0),
+            'multiple_dates': multiple_dates,
+            'multiple_dates_rate': float((multiple_dates / total * 100) if total > 0 else 0),
+            'ocr_success_parser_fail': ocr_success_parser_fail,
+            'ocr_success_parser_fail_rate': float((ocr_success_parser_fail / total * 100) if total > 0 else 0),
+            'ocr_fail_parser_success': ocr_fail_parser_success,
+            # ✨ NOVAS MÉTRICAS
+            'ocr_valid_parser_correct': ocr_valid_parser_correct,
+            'ocr_valid_parser_correct_rate': float((ocr_valid_parser_correct / total * 100) if total > 0 else 0),
+            'ocr_valid_parser_exact_match': ocr_valid_parser_correct_exact_match,
+            'ocr_valid_parser_exact_match_rate': float((ocr_valid_parser_correct_exact_match / total * 100) if total > 0 else 0),
+            'avg_parse_confidence': float(df['final_confidence'].mean()) if 'final_confidence' in df.columns else 0.0
+        }
+        
+        # 4. ANÁLISE DE CASCATA (Como erros se propagam)
+        yolo_ok_ocr_fail = 0
+        yolo_ok_ocr_ok_parser_fail = 0
+        full_pipeline_success = 0
+        
+        for result in self.results:
+            has_detection = result.get('num_detections', 0) > 0
+            has_ocr_text = result.get('predicted_text', '').strip() != ''
+            has_dates = result.get('num_dates_found', 0) > 0
+            
+            if has_detection and not has_ocr_text:
+                yolo_ok_ocr_fail += 1
+            elif has_detection and has_ocr_text and not has_dates:
+                yolo_ok_ocr_ok_parser_fail += 1
+            elif has_detection and has_ocr_text and has_dates:
+                full_pipeline_success += 1
+        
+        summary['pipeline_cascade'] = {
+            'yolo_ok_ocr_fail': yolo_ok_ocr_fail,
+            'yolo_ok_ocr_fail_rate': float((yolo_ok_ocr_fail / total * 100) if total > 0 else 0),
+            'yolo_ok_ocr_ok_parser_fail': yolo_ok_ocr_ok_parser_fail,
+            'yolo_ok_ocr_ok_parser_fail_rate': float((yolo_ok_ocr_ok_parser_fail / total * 100) if total > 0 else 0),
+            'full_pipeline_success': full_pipeline_success,
+            'full_pipeline_success_rate': float((full_pipeline_success / total * 100) if total > 0 else 0)
+        }
+        
+        # Filtrar apenas sucessos para métricas tradicionais
         df_success = df[df['success'] == True]
         
         if len(df_success) == 0:
             return summary
         
-        # Métricas de detecção
+        # Métricas de detecção (tradicionais)
         if self.config['metrics']['detection']['enabled'] and 'num_detections' in df_success.columns:
             summary['detection'] = {
                 'detection_rate': float((df_success['num_detections'] > 0).mean() * 100),
@@ -719,7 +844,7 @@ class PipelineEvaluator:
                 'avg_confidence': float(df_success['avg_detection_confidence'].mean()) if 'avg_detection_confidence' in df_success.columns else 0.0
             }
         
-        # Métricas de OCR
+        # Métricas de OCR (tradicionais)
         if self.config['metrics']['ocr']['enabled'] and 'exact_match' in df_success.columns:
             summary['ocr'] = {
                 'exact_match_rate': float(df_success['exact_match'].mean() * 100),
@@ -729,14 +854,14 @@ class PipelineEvaluator:
                 'avg_wer': float(df_success['wer'].mean()) if 'wer' in df_success.columns else 1.0
             }
         
-        # Métricas de parsing de data
+        # Métricas de parsing de data (tradicionais)
         if self.config['metrics']['date_parsing']['enabled'] and 'num_dates_found' in df_success.columns:
             summary['date_parsing'] = {
                 'date_found_rate': float((df_success['num_dates_found'] > 0).mean() * 100),
                 'avg_dates_per_image': float(df_success['num_dates_found'].mean())
             }
         
-        # Métricas end-to-end
+        # Métricas end-to-end (tradicionais)
         if self.config['metrics']['end_to_end']['enabled']:
             summary['end_to_end'] = {
                 'pipeline_accuracy': float(df_success['exact_match'].mean() * 100) if 'exact_match' in df_success.columns else 0.0,
@@ -949,8 +1074,81 @@ class PipelineEvaluator:
         
         logger.info(f"   ✅ Gráficos salvos: {viz_dir}")
     
+    def print_detailed_summary(self):
+        """Imprime resumo detalhado das métricas no console."""
+        logger.info("\n" + "=" * 80)
+        logger.info("📊 RESUMO DETALHADO DA AVALIAÇÃO")
+        logger.info("=" * 80)
+        
+        # Métricas gerais
+        general = self.metrics_summary.get('general', {})
+        logger.info(f"\n📈 MÉTRICAS GERAIS:")
+        logger.info(f"   Total de imagens: {general.get('total_images', 0)}")
+        logger.info(f"   ✅ Sucessos: {general.get('successful', 0)}")
+        logger.info(f"   ❌ Falhas: {general.get('failed', 0)}")
+        logger.info(f"   Taxa de sucesso: {general.get('success_rate', 0):.2f}%")
+        
+        # ANÁLISE DE DETECÇÃO
+        if 'detection_analysis' in self.metrics_summary:
+            det_analysis = self.metrics_summary['detection_analysis']
+            logger.info(f"\n🎯 ANÁLISE DE DETECÇÃO (YOLO):")
+            logger.info(f"   ❌ Nenhuma detecção: {det_analysis.get('no_detections', 0)} ({det_analysis.get('no_detections_rate', 0):.2f}%)")
+            logger.info(f"   ✅ Uma detecção: {det_analysis.get('single_detection', 0)} ({det_analysis.get('single_detection_rate', 0):.2f}%)")
+            logger.info(f"   🔢 Múltiplas detecções: {det_analysis.get('multiple_detections', 0)} ({det_analysis.get('multiple_detections_rate', 0):.2f}%)")
+            logger.info(f"   📊 Média detecções/img: {det_analysis.get('avg_detections_per_image', 0):.2f}")
+            logger.info(f"   🎯 Confiança média: {det_analysis.get('avg_detection_confidence', 0):.3f}")
+        
+        # ANÁLISE DE OCR
+        if 'ocr_analysis' in self.metrics_summary:
+            ocr_analysis = self.metrics_summary['ocr_analysis']
+            logger.info(f"\n🔤 ANÁLISE DE OCR:")
+            logger.info(f"   ❌ OCR vazio: {ocr_analysis.get('empty_ocr', 0)} ({ocr_analysis.get('empty_ocr_rate', 0):.2f}%)")
+            logger.info(f"   ⚠️  Apenas espaços: {ocr_analysis.get('whitespace_only', 0)} ({ocr_analysis.get('whitespace_only_rate', 0):.2f}%)")
+            logger.info(f"   ⚠️  Texto curto (<3 chars): {ocr_analysis.get('short_text', 0)} ({ocr_analysis.get('short_text_rate', 0):.2f}%)")
+            logger.info(f"   🎯 Confiança média: {ocr_analysis.get('avg_ocr_confidence', 0):.3f}")
+            logger.info(f"   ⚠️  Baixa confiança (<0.5): {ocr_analysis.get('low_confidence_ocr', 0)} imagens")
+        
+        # ANÁLISE DE PARSING
+        if 'date_parsing_analysis' in self.metrics_summary:
+            parse_analysis = self.metrics_summary['date_parsing_analysis']
+            logger.info(f"\n📅 ANÁLISE DE PARSING DE DATAS:")
+            logger.info(f"   ❌ Nenhuma data: {parse_analysis.get('no_dates_found', 0)} ({parse_analysis.get('no_dates_found_rate', 0):.2f}%)")
+            logger.info(f"   ✅ Uma data: {parse_analysis.get('single_date', 0)} ({parse_analysis.get('single_date_rate', 0):.2f}%)")
+            logger.info(f"   🔢 Múltiplas datas: {parse_analysis.get('multiple_dates', 0)} ({parse_analysis.get('multiple_dates_rate', 0):.2f}%)")
+            logger.info(f"   ⚠️  OCR OK mas parser falhou: {parse_analysis.get('ocr_success_parser_fail', 0)} ({parse_analysis.get('ocr_success_parser_fail_rate', 0):.2f}%)")
+            logger.info(f"   🎯 Parser acertou sem OCR: {parse_analysis.get('ocr_fail_parser_success', 0)} imagens")
+            logger.info(f"   ✨ OCR válido + Parser encontrou data: {parse_analysis.get('ocr_valid_parser_correct', 0)} ({parse_analysis.get('ocr_valid_parser_correct_rate', 0):.2f}%)")
+            logger.info(f"   🏆 OCR válido + Parser acertou exato: {parse_analysis.get('ocr_valid_parser_exact_match', 0)} ({parse_analysis.get('ocr_valid_parser_exact_match_rate', 0):.2f}%)")
+            logger.info(f"   🎯 Confiança média: {parse_analysis.get('avg_parse_confidence', 0):.3f}")
+        
+        # ANÁLISE DE CASCATA
+        if 'pipeline_cascade' in self.metrics_summary:
+            cascade = self.metrics_summary['pipeline_cascade']
+            logger.info(f"\n🔄 ANÁLISE DE CASCATA (Propagação de Erros):")
+            logger.info(f"   YOLO ✅ → OCR ❌: {cascade.get('yolo_ok_ocr_fail', 0)} ({cascade.get('yolo_ok_ocr_fail_rate', 0):.2f}%)")
+            logger.info(f"   YOLO ✅ → OCR ✅ → Parser ❌: {cascade.get('yolo_ok_ocr_ok_parser_fail', 0)} ({cascade.get('yolo_ok_ocr_ok_parser_fail_rate', 0):.2f}%)")
+            logger.info(f"   🎯 Pipeline completa OK: {cascade.get('full_pipeline_success', 0)} ({cascade.get('full_pipeline_success_rate', 0):.2f}%)")
+        
+        # MÉTRICAS TRADICIONAIS (APENAS SUCESSOS)
+        if 'ocr' in self.metrics_summary:
+            ocr = self.metrics_summary['ocr']
+            logger.info(f"\n📊 MÉTRICAS DE ACURÁCIA (Apenas Sucessos):")
+            logger.info(f"   Exact Match: {ocr.get('exact_match_rate', 0):.2f}%")
+            logger.info(f"   Partial Match: {ocr.get('partial_match_rate', 0):.2f}%")
+            logger.info(f"   Similaridade média: {ocr.get('avg_similarity', 0):.3f}")
+            logger.info(f"   CER médio: {ocr.get('avg_cer', 0):.3f}")
+            logger.info(f"   WER médio: {ocr.get('avg_wer', 0):.3f}")
+        
+        if 'end_to_end' in self.metrics_summary:
+            e2e = self.metrics_summary['end_to_end']
+            logger.info(f"\n⏱️  PERFORMANCE:")
+            logger.info(f"   Tempo médio: {e2e.get('avg_processing_time', 0):.3f}s")
+            logger.info(f"   Confiança média: {e2e.get('avg_final_confidence', 0):.3f}")
+        
+        logger.info("\n" + "=" * 80 + "\n")
+    
     def _generate_markdown_report(self, output_path: Path):
-        """Gera relatório markdown."""
+        """Gera relatório markdown com estatísticas detalhadas."""
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write("# 📊 Relatório de Avaliação da Pipeline\n\n")
             f.write(f"**Data:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
@@ -963,17 +1161,86 @@ class PipelineEvaluator:
             f.write(f"- **Falhas:** {general.get('failed', 0)}\n")
             f.write(f"- **Taxa de Sucesso:** {general.get('success_rate', 0):.2f}%\n\n")
             
-            # Métricas de detecção
+            # ========================================
+            # ESTATÍSTICAS DETALHADAS POR ETAPA
+            # ========================================
+            
+            # 1. ANÁLISE DE DETECÇÃO (YOLO)
+            if 'detection_analysis' in self.metrics_summary:
+                f.write("## 🎯 Análise Detalhada de Detecção (YOLO)\n\n")
+                det_analysis = self.metrics_summary['detection_analysis']
+                f.write("### Distribuição de Detecções\n\n")
+                f.write(f"- **❌ Nenhuma Detecção:** {det_analysis.get('no_detections', 0)} imagens ({det_analysis.get('no_detections_rate', 0):.2f}%)\n")
+                f.write(f"- **✅ Uma Detecção:** {det_analysis.get('single_detection', 0)} imagens ({det_analysis.get('single_detection_rate', 0):.2f}%)\n")
+                f.write(f"- **🔢 Múltiplas Detecções:** {det_analysis.get('multiple_detections', 0)} imagens ({det_analysis.get('multiple_detections_rate', 0):.2f}%)\n\n")
+                f.write("### Estatísticas\n\n")
+                f.write(f"- **Média de Detecções/Imagem:** {det_analysis.get('avg_detections_per_image', 0):.2f}\n")
+                f.write(f"- **Máximo de Detecções:** {det_analysis.get('max_detections', 0)}\n")
+                f.write(f"- **Confiança Média:** {det_analysis.get('avg_detection_confidence', 0):.3f}\n\n")
+            
+            # 2. ANÁLISE DE OCR
+            if 'ocr_analysis' in self.metrics_summary:
+                f.write("## 🔤 Análise Detalhada de OCR\n\n")
+                ocr_analysis = self.metrics_summary['ocr_analysis']
+                f.write("### Problemas de OCR\n\n")
+                f.write(f"- **❌ OCR Vazio:** {ocr_analysis.get('empty_ocr', 0)} imagens ({ocr_analysis.get('empty_ocr_rate', 0):.2f}%)\n")
+                f.write(f"  - *Nenhum texto foi detectado pelo OCR*\n")
+                f.write(f"- **⚠️ Apenas Espaços:** {ocr_analysis.get('whitespace_only', 0)} imagens ({ocr_analysis.get('whitespace_only_rate', 0):.2f}%)\n")
+                f.write(f"  - *OCR retornou apenas espaços em branco*\n")
+                f.write(f"- **⚠️ Texto Curto (<3 chars):** {ocr_analysis.get('short_text', 0)} imagens ({ocr_analysis.get('short_text_rate', 0):.2f}%)\n")
+                f.write(f"  - *Texto muito curto, provavelmente erro*\n\n")
+                f.write("### Estatísticas de Confiança\n\n")
+                f.write(f"- **Confiança Média do OCR:** {ocr_analysis.get('avg_ocr_confidence', 0):.3f}\n")
+                f.write(f"- **OCR com Baixa Confiança (<0.5):** {ocr_analysis.get('low_confidence_ocr', 0)} imagens\n\n")
+            
+            # 3. ANÁLISE DE PARSING
+            if 'date_parsing_analysis' in self.metrics_summary:
+                f.write("## 📅 Análise Detalhada de Parsing de Datas\n\n")
+                parse_analysis = self.metrics_summary['date_parsing_analysis']
+                f.write("### Distribuição de Datas Encontradas\n\n")
+                f.write(f"- **❌ Nenhuma Data:** {parse_analysis.get('no_dates_found', 0)} imagens ({parse_analysis.get('no_dates_found_rate', 0):.2f}%)\n")
+                f.write(f"- **✅ Uma Data:** {parse_analysis.get('single_date', 0)} imagens ({parse_analysis.get('single_date_rate', 0):.2f}%)\n")
+                f.write(f"- **🔢 Múltiplas Datas:** {parse_analysis.get('multiple_dates', 0)} imagens ({parse_analysis.get('multiple_dates_rate', 0):.2f}%)\n\n")
+                f.write("### Análise de Erros de Parsing\n\n")
+                f.write(f"- **⚠️ OCR OK mas Parser Falhou:** {parse_analysis.get('ocr_success_parser_fail', 0)} imagens ({parse_analysis.get('ocr_success_parser_fail_rate', 0):.2f}%)\n")
+                f.write(f"  - *OCR extraiu texto mas o parser não encontrou data válida*\n")
+                f.write(f"- **🎯 Parser Acertou sem OCR:** {parse_analysis.get('ocr_fail_parser_success', 0)} imagens\n")
+                f.write(f"  - *Parser encontrou data mesmo com OCR vazio (raro)*\n\n")
+                f.write("### ✨ Análise de Sucesso (OCR + Parser)\n\n")
+                f.write(f"- **✨ OCR Válido + Parser Encontrou Data:** {parse_analysis.get('ocr_valid_parser_correct', 0)} imagens ({parse_analysis.get('ocr_valid_parser_correct_rate', 0):.2f}%)\n")
+                f.write(f"  - *OCR retornou texto não-vazio E parser conseguiu extrair uma data*\n")
+                f.write(f"- **🏆 OCR Válido + Parser Acertou Exato:** {parse_analysis.get('ocr_valid_parser_exact_match', 0)} imagens ({parse_analysis.get('ocr_valid_parser_exact_match_rate', 0):.2f}%)\n")
+                f.write(f"  - *OCR retornou texto E parser extraiu a data CORRETA (exact match)*\n\n")
+                f.write("### Estatísticas\n\n")
+                f.write(f"- **Confiança Média do Parser:** {parse_analysis.get('avg_parse_confidence', 0):.3f}\n\n")
+            
+            # 4. ANÁLISE DE CASCATA
+            if 'pipeline_cascade' in self.metrics_summary:
+                f.write("## 🔄 Análise de Cascata (Propagação de Erros)\n\n")
+                cascade = self.metrics_summary['pipeline_cascade']
+                f.write("### Pontos de Falha da Pipeline\n\n")
+                f.write(f"- **YOLO ✅ → OCR ❌:** {cascade.get('yolo_ok_ocr_fail', 0)} ({cascade.get('yolo_ok_ocr_fail_rate', 0):.2f}%)\n")
+                f.write(f"  - *YOLO detectou mas OCR falhou*\n")
+                f.write(f"- **YOLO ✅ → OCR ✅ → Parser ❌:** {cascade.get('yolo_ok_ocr_ok_parser_fail', 0)} ({cascade.get('yolo_ok_ocr_ok_parser_fail_rate', 0):.2f}%)\n")
+                f.write(f"  - *YOLO e OCR OK mas parser não encontrou data*\n")
+                f.write(f"- **🎯 Pipeline Completa com Sucesso:** {cascade.get('full_pipeline_success', 0)} imagens ({cascade.get('full_pipeline_success_rate', 0):.2f}%)\n")
+                f.write(f"  - *Todas as etapas funcionaram corretamente*\n\n")
+            
+            # ========================================
+            # MÉTRICAS TRADICIONAIS
+            # ========================================
+            
+            # Métricas de detecção (tradicionais)
             if 'detection' in self.metrics_summary:
-                f.write("## 🎯 Métricas de Detecção (YOLO)\n\n")
+                f.write("## 📊 Métricas de Detecção (Apenas Sucessos)\n\n")
                 detection = self.metrics_summary['detection']
                 f.write(f"- **Taxa de Detecção:** {detection.get('detection_rate', 0):.2f}%\n")
                 f.write(f"- **Média de Detecções/Imagem:** {detection.get('avg_detections_per_image', 0):.2f}\n")
                 f.write(f"- **Confiança Média:** {detection.get('avg_confidence', 0):.3f}\n\n")
             
-            # Métricas de OCR
+            # Métricas de OCR (tradicionais)
             if 'ocr' in self.metrics_summary:
-                f.write("## 🔤 Métricas de OCR\n\n")
+                f.write("## � Métricas de OCR (Apenas Sucessos)\n\n")
                 ocr = self.metrics_summary['ocr']
                 f.write(f"- **Exact Match:** {ocr.get('exact_match_rate', 0):.2f}%\n")
                 f.write(f"- **Partial Match:** {ocr.get('partial_match_rate', 0):.2f}%\n")
@@ -981,14 +1248,14 @@ class PipelineEvaluator:
                 f.write(f"- **CER Médio:** {ocr.get('avg_cer', 0):.3f}\n")
                 f.write(f"- **WER Médio:** {ocr.get('avg_wer', 0):.3f}\n\n")
             
-            # Métricas de parsing
+            # Métricas de parsing (tradicionais)
             if 'date_parsing' in self.metrics_summary:
-                f.write("## 📅 Métricas de Parsing de Datas\n\n")
+                f.write("## � Métricas de Parsing (Apenas Sucessos)\n\n")
                 parsing = self.metrics_summary['date_parsing']
                 f.write(f"- **Taxa de Datas Encontradas:** {parsing.get('date_found_rate', 0):.2f}%\n")
                 f.write(f"- **Média de Datas/Imagem:** {parsing.get('avg_dates_per_image', 0):.2f}\n\n")
             
-            # Métricas end-to-end
+            # Métricas end-to-end (tradicionais)
             if 'end_to_end' in self.metrics_summary:
                 f.write("## 🎯 Métricas End-to-End\n\n")
                 e2e = self.metrics_summary['end_to_end']
@@ -1111,29 +1378,17 @@ def main():
     # Salvar visualizações
     evaluator.save_visualizations(output_dir)
     
+    # Imprimir resumo detalhado no console
+    evaluator.print_detailed_summary()
+    
     # Relatório final
     logger.info("\n" + "=" * 80)
     logger.info("✅ AVALIAÇÃO CONCLUÍDA")
     logger.info("=" * 80)
     logger.info(f"⏱️  Tempo total: {total_time:.2f}s")
     logger.info(f"📁 Resultados salvos em: {output_dir}")
+    logger.info(f"� Relatório detalhado: {output_dir / 'evaluation_report.md'}")
     logger.info("=" * 80)
-    
-    # Mostrar métricas principais
-    if evaluator.metrics_summary:
-        logger.info("\n📊 Resumo das Métricas:")
-        
-        if 'general' in evaluator.metrics_summary:
-            general = evaluator.metrics_summary['general']
-            logger.info(f"   Total: {general['total_images']} | Sucesso: {general['success_rate']:.1f}%")
-        
-        if 'ocr' in evaluator.metrics_summary:
-            ocr = evaluator.metrics_summary['ocr']
-            logger.info(f"   Exact Match: {ocr['exact_match_rate']:.1f}% | CER: {ocr['avg_cer']:.3f}")
-        
-        if 'end_to_end' in evaluator.metrics_summary:
-            e2e = evaluator.metrics_summary['end_to_end']
-            logger.info(f"   Pipeline Accuracy: {e2e['pipeline_accuracy']:.1f}% | Tempo: {e2e['avg_processing_time']:.3f}s")
 
 
 if __name__ == '__main__':
