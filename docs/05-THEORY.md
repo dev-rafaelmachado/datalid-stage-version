@@ -764,8 +764,6 @@ O Datalid 3.0 combina:
 - 🔧 **Pré-processamento inteligente** para qualidade
 - ✅ **Pós-processamento rigoroso** para validação
 
-Resultado: **95%+ de acurácia** em datas de validade!
-
 ---
 
 **Próximo: [Fluxo de Dados →](06-DATA-FLOW.md)**
