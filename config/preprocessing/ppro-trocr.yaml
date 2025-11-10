@@ -6,7 +6,6 @@ steps:
     enabled: true
     method: gray_world  # Mantém cores naturais, sem exagero
 
-  # 🔆 NOVA: Normalização de brilho (resolve imagens muito brilhantes/escuras)
   brightness_normalize:
     enabled: true
     target_brightness: 130  # Alvo de brilho médio (0-255)

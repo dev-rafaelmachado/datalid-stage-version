@@ -3,7 +3,7 @@ name: expiry_date_full_pipeline
 
 # Detecção (YOLO)
 detection:
-  model_path: experiments\975\yolov8m_seg_best\weights\best.pt
+  model_path: experiments\1104\yolov8m-seg\weights\best.pt
   confidence: 0.25
   iou: 0.7
   device: 0

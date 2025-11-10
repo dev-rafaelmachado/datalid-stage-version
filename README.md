@@ -134,9 +134,9 @@ A documentação está **completamente atualizada** e organizada em **[docs/READ
 
 | Componente | Métrica | Valor |
 |------------|---------|-------|
-| **Detecção YOLO** | mAP@0.5 | 93% |
-| **OCR (OpenOCR)** | Acurácia | 72% |
-| **End-to-End** | F1-Score | 45% |
+| **Detecção YOLO** | Acurácia | 95% |
+| **OCR (OpenOCR)** | CER | 72% |
+| **End-to-End** | Acurácia | 45% |
 
 ### Velocidade (GPU RTX 3060)
 
