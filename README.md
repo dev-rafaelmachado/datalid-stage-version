@@ -478,19 +478,6 @@ async function verificarValidade(foto) {
 
 Este projeto está sob licença MIT - veja [LICENSE](LICENSE) para detalhes.
 
-## 🎓 Citação
-
-Se você usar este projeto em sua pesquisa, por favor cite:
-
-```bibtex
-@software{datalid3.0,
-  author = {Seu Nome},
-  title = {Datalid 3.0: Sistema Inteligente de Detecção de Datas de Validade},
-  year = {2025},
-  url = {https://github.com/seu-usuario/datalid3.0}
-}
-```
-
 ---
 
 <div align="center">
