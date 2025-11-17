@@ -1,15 +1,13 @@
 # Core ML
 ultralytics>=8.0.100
-# torch>=2.0.0
-torchvision>=0.15.0
 
-# OCR Engines
-# PARSeq TINE (Tiny Efficient) - carregado via torch.hub
-# Repositório: baudm/parseq
-# Requer: torch, torchvision, PIL
+# Torch (CPU only)
+torch==2.3.0+cpu
+torchvision==0.18.0+cpu
+--extra-index-url https://download.pytorch.org/whl/cpu
 
-# Computer Vision
-opencv-python>=4.8.0
+# Computer Vision (headless reduces image size)
+opencv-python-headless>=4.8.0
 Pillow>=10.0.0
 
 # Data Processing
@@ -26,32 +24,25 @@ pydantic-settings>=2.0.0
 click>=8.1.0
 rich>=13.0.0
 
-# Testing
-pytest>=7.4.0
-pytest-cov>=4.1.0
+# Logging
+loguru>=0.7.0
+tqdm>=4.65.0
 
-# Visualization
+# API
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart>=0.0.6
+
+# Visualization (these are heavy — keep only if needed)
 matplotlib>=3.7.0
 seaborn>=0.12.0
 plotly>=5.14.0
 tensorboard>=2.14.0
 
-# API (optional)
-fastapi>=0.100.0
-uvicorn>=0.23.0
-python-multipart>=0.0.6
-
-# Development
-black>=23.0.0
-flake8>=6.0.0
-isort>=5.12.0
-pre-commit>=3.3.0
-
-# Logging
-loguru>=0.7.0
-
-# Progress
-tqdm>=4.65.0
-
-# Evaluation (optional - for COCO JSON export)
-# faster-coco-eval>=1.6.7  # Uncomment to enable JSON export in test/val
+# Development (⚠️ NÃO instale isso na imagem final!)
+# black>=23.0.0
+# flake8>=6.0.0
+# isort>=5.12.0
+# pre-commit>=3.3.0
+# pytest>=7.4.0
+# pytest-cov>=4.1.0
