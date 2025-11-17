@@ -15,10 +15,10 @@ services:
       # API
       API_HOST: 0.0.0.0
       API_PORT: 8000
-      API_WORKERS: 1  # Ajustar conforme recursos
+      API_WORKERS: 1  # 1 worker para t3.medium
       
-      # Modelo YOLO
-      YOLO_MODEL_PATH: /app/models/yolov8m-seg.pt
+      # Modelo YOLO - SEU MODELO TREINADO
+      YOLO_MODEL_PATH: /app/experiments/1104/yolov8m-seg/weights/best.pt
       
       # Configurações
       MAX_FILE_SIZE_MB: 10
@@ -38,15 +38,15 @@ services:
       
     restart: unless-stopped
     
-    # Limites de recursos (ajustar conforme sua EC2)
+    # Limites de recursos (otimizado para t3.medium - 4GB RAM)
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 4G
+          cpus: '1.5'
+          memory: 3G
         reservations:
-          cpus: '1'
-          memory: 2G
+          cpus: '0.5'
+          memory: 1.5G
     
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
@@ -55,25 +55,6 @@ services:
       retries: 3
       start_period: 60s
     
-    networks:
-      - datalid-network
-
-  # ========================================
-  # Nginx (Reverse Proxy) - Opcional
-  # ========================================
-  nginx:
-    image: nginx:alpine
-    container_name: datalid-nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./infra/nginx.conf:/etc/nginx/nginx.conf:ro
-      # SSL certificates (se tiver)
-      # - ./infra/ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - datalid-api
-    restart: unless-stopped
     networks:
       - datalid-network
 

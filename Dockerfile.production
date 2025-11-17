@@ -1,26 +1,30 @@
 # ========================================
-# STAGE 1: Builder
+# STAGE 1: Builder - Instalar dependências
 # ========================================
 FROM python:3.10-slim as builder
 
-# Instalar dependências de build
+# Instalar dependências de build (mínimo necessário)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     git \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /build
 
-# Copiar requirements
+# Copiar apenas requirements primeiro (cache layer)
 COPY requirements.txt .
 
-# Instalar dependências em um diretório isolado
-RUN pip install --user --no-cache-dir -r requirements.txt
-
+# Instalar dependências Python em /install
+# Usar --prefix para instalar em local específico (economiza espaço)
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r requirements.txt && \
+    # Limpar cache do pip que possa ter ficado
+    rm -rf /root/.cache/pip
 
 # ========================================
-# STAGE 2: Runtime
+# STAGE 2: Runtime - Imagem final mínima
 # ========================================
 FROM python:3.10-slim
 
@@ -33,68 +37,61 @@ LABEL version="3.0.0"
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PATH=/root/.local/bin:$PATH \
+    PYTHONPATH=/usr/local \
     # Configurações da API
     API_HOST=0.0.0.0 \
     API_PORT=8000 \
     API_WORKERS=1 \
-    # YOLO
-    YOLO_MODEL_PATH=/app/models/yolov8m-seg.pt \
+    # YOLO - ATUALIZADO para usar seu modelo treinado
+    YOLO_MODEL_PATH=/app/experiments/1104/yolov8m-seg/weights/best.pt \
     # Logs
     LOG_LEVEL=INFO
 
-# Instalar dependências runtime do sistema
+# Instalar APENAS dependências runtime essenciais (OTIMIZADO)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # OpenCV e bibliotecas de imagem
-    libgl1-mesa-glx \
+    # OpenCV e bibliotecas de imagem (CORRIGIDO)
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
     libgomp1 \
-    # Tesseract OCR (se usar)
+    # Tesseract OCR (apenas se realmente usar)
     tesseract-ocr \
     tesseract-ocr-por \
     tesseract-ocr-eng \
-    # Limpeza
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
 
 WORKDIR /app
 
-# Copiar dependências Python do builder
-COPY --from=builder /root/.local /root/.local
+# Copiar dependências Python do builder (otimizado)
+COPY --from=builder /install /usr/local
 
-# Copiar código da aplicação
+# Copiar código da aplicação (ordem otimizada para cache)
 COPY src/ ./src/
 COPY config/ ./config/
 COPY requirements.txt .
+
+# Copiar MODELO TREINADO (seu best.pt)
+# IMPORTANTE: Garanta que este arquivo existe no seu repositório ou use SCP
+COPY experiments/1104/yolov8m-seg/weights/best.pt ./experiments/1104/yolov8m-seg/weights/
 
 # Criar diretórios necessários
 RUN mkdir -p \
     uploads \
     outputs/api_results \
     logs \
-    models \
     temp \
     e2e_results
-
-# IMPORTANTE: Copiar os pesos do modelo
-# Opção 1: Se os pesos estão no repositório
-COPY models/yolov8m-seg.pt ./models/
-# COPY models/yolov8s-seg.pt ./models/  # Modelos alternativos
-
-# Opção 2: Download automático (comentado - ativa se preferir)
-# RUN python -c "from ultralytics import YOLO; YOLO('yolov8m-seg.pt')"
-
-# Configurar permissões
-RUN chmod -R 755 /app && \
-    chmod -R 777 /app/uploads /app/outputs /app/logs /app/temp
 
 # Criar usuário não-root (segurança)
 RUN useradd -m -u 1000 apiuser && \
     chown -R apiuser:apiuser /app
 
+# Mudar para usuário não-root
 USER apiuser
 
 # Expor porta
@@ -104,5 +101,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
 
-# Comando padrão (pode ser sobrescrito)
+# Comando padrão
 CMD ["sh", "-c", "uvicorn src.api.main:app --host ${API_HOST} --port ${API_PORT} --workers ${API_WORKERS}"]
