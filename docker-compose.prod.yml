@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # ========================================
+  # API de Produção
+  # ========================================
+  datalid-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    container_name: datalid-api-prod
+    ports:
+      - "8000:8000"
+    environment:
+      # API
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      API_WORKERS: 1  # Ajustar conforme recursos
+      
+      # Modelo YOLO
+      YOLO_MODEL_PATH: /app/models/yolov8m-seg.pt
+      
+      # Configurações
+      MAX_FILE_SIZE_MB: 10
+      MAX_BATCH_SIZE: 50
+      ALLOWED_EXTENSIONS: "jpg,jpeg,png,bmp"
+      
+      # Logs
+      LOG_LEVEL: INFO
+      
+    volumes:
+      # Persistir uploads (opcional)
+      - ./uploads:/app/uploads
+      # Persistir outputs (opcional)
+      - ./outputs:/app/outputs
+      # Persistir logs
+      - ./logs:/app/logs
+      
+    restart: unless-stopped
+    
+    # Limites de recursos (ajustar conforme sua EC2)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    networks:
+      - datalid-network
+
+  # ========================================
+  # Nginx (Reverse Proxy) - Opcional
+  # ========================================
+  nginx:
+    image: nginx:alpine
+    container_name: datalid-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/nginx.conf:ro
+      # SSL certificates (se tiver)
+      # - ./infra/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - datalid-api
+    restart: unless-stopped
+    networks:
+      - datalid-network
+
+networks:
+  datalid-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  outputs:
+  logs:

@@ -223,7 +223,11 @@ async def process_image(
     ),
     return_crops: bool = Form(
         False,
-        description="Retornar crops das detecções"
+        description="Retornar crops das detecções (DEPRECATED)"
+    ),
+    return_crop_images: bool = Form(
+        False,
+        description="Retornar imagens dos crops (original e pré-processado) nos resultados OCR"
     ),
     return_full_ocr: bool = Form(
         False,
@@ -300,6 +304,7 @@ async def process_image(
     options = ProcessingOptions(
         return_visualization=return_visualization,
         return_crops=return_crops,
+        return_crop_images=return_crop_images,
         return_full_ocr=return_full_ocr,
         save_results=save_results
     )
@@ -343,6 +348,7 @@ async def process_batch(
     ocr_engine: Optional[str] = Form(None),
     return_visualization: bool = Form(False),
     return_crops: bool = Form(False),
+    return_crop_images: bool = Form(False),
     return_full_ocr: bool = Form(False),
     save_results: bool = Form(False),
 ) -> BatchProcessResponse:
@@ -386,6 +392,7 @@ async def process_batch(
     options = ProcessingOptions(
         return_visualization=return_visualization,
         return_crops=return_crops,
+        return_crop_images=return_crop_images,
         return_full_ocr=return_full_ocr,
         save_results=save_results
     )
@@ -481,6 +488,7 @@ async def process_url(
     ocr_engine: Optional[str] = Form(None),
     return_visualization: bool = Form(False),
     return_crops: bool = Form(False),
+    return_crop_images: bool = Form(False),
     return_full_ocr: bool = Form(False),
     save_results: bool = Form(False),
 ):
@@ -548,6 +556,7 @@ async def process_url(
     options = ProcessingOptions(
         return_visualization=return_visualization,
         return_crops=return_crops,
+        return_crop_images=return_crop_images,
         return_full_ocr=return_full_ocr,
         save_results=save_results
     )

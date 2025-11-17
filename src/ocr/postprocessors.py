@@ -811,7 +811,6 @@ def test_parser():
     ]
     
     print("\n" + "="*100)
-    print("🧪 TESTE COMPLETO DO PARSER v6 ULTRA")
     print("="*100 + "\n")
     
     passed = 0

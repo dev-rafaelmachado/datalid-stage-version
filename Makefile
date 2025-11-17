@@ -421,7 +421,7 @@ compare-models:
 
 test-model:
 	@echo "$(CYAN)🧪 Testando modelo YOLO...$(RESET)"
-	$(PYTHON) $(SCRIPTS_DIR)/evaluation/test_model.py --model_path="$(EXPERIMENTS_DIR)/$(MODEL)/weights/best.pt" --batch=1 --imgsz=320
+	$(PYTHON) $(SCRIPTS_DIR)/evaluation/test_model.py --model_path="$(EXPERIMENTS_DIR)/$(MODEL)/weights/best.pt"
 
 # ========================================
 # 🔮 PREDIÇÃO/INFERÊNCIA

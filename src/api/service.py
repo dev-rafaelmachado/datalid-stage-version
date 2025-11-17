@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
+import yaml
 from loguru import logger
 from PIL import Image
 
@@ -62,25 +63,16 @@ class ProcessingService:
     
     def _build_pipeline_config(self) -> Dict[str, Any]:
         """Constrói configuração do pipeline."""
-        return {
-            'name': 'api_pipeline',
-            'detection': {
-                'model_path': self.settings.default_yolo_model,
-                'confidence': self.settings.default_confidence,
-                'iou': self.settings.default_iou,
-                'device': self.settings.model_device,
-            },
-            'ocr': {
-                'engine': self.settings.default_ocr_engine,
-                'config': self.settings.default_ocr_config,
-                'preprocessing': self.settings.default_preprocessing_config,
-            },
-            'output': {
-                'output_dir': str(self.settings.get_results_path()),
-                'save_visualizations': False,
-                'save_crops': False,
-            }
-        }
+        config_path = "config/pipeline/full_pipeline.yaml"
+        config_path = Path(config_path)
+        
+        if not config_path.exists():
+            raise FileNotFoundError(f"Arquivo de configuração não encontrado: {config_path}")
+        
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        return config
     
     def process_image(
         self,
@@ -176,11 +168,11 @@ class ProcessingService:
             for det in result.get('detections', [])
         ]
         
-        # Converter resultados OCR
+        # Converter resultados OCR (sempre retorna)
         ocr_results = [
-            self._convert_ocr_result(ocr)
+            self._convert_ocr_result(ocr, options.return_crop_images)
             for ocr in result.get('ocr_results', [])
-        ] if options.return_full_ocr else []
+        ]
         
         # Converter datas
         dates = [
@@ -255,16 +247,29 @@ class ProcessingService:
             confidence=detection.get('confidence', 0.0),
             class_id=detection.get('class_id', 0),
             class_name=detection.get('class_name', 'exp_date'),
-            has_mask=detection.get('has_mask', False)
+            has_mask=detection.get('has_mask', False),
+            segmentation=detection.get('segmentation')
         )
     
-    def _convert_ocr_result(self, ocr: Dict[str, Any]) -> OCRResult:
+    def _convert_ocr_result(self, ocr: Dict[str, Any], return_crop_images: bool = False) -> OCRResult:
         """Converte resultado OCR do pipeline para schema da API."""
+        crop_original_base64 = None
+        crop_processed_base64 = None
+        
+        # Converter crops para base64 se solicitado
+        if return_crop_images:
+            if 'crop_original' in ocr and ocr['crop_original'] is not None:
+                crop_original_base64 = self._image_to_base64(ocr['crop_original'])
+            if 'crop_processed' in ocr and ocr['crop_processed'] is not None:
+                crop_processed_base64 = self._image_to_base64(ocr['crop_processed'])
+        
         return OCRResult(
             text=ocr.get('text', ''),
             confidence=ocr.get('confidence', 0.0),
             engine=ocr.get('engine', 'unknown'),
-            processing_time=ocr.get('processing_time', 0.0)
+            processing_time=ocr.get('processing_time', 0.0),
+            crop_original_base64=crop_original_base64,
+            crop_processed_base64=crop_processed_base64
         )
     
     def _convert_date(self, date: Dict[str, Any]) -> ParsedDate:
@@ -295,6 +300,30 @@ class ProcessingService:
             days_until_expiry=days_until_expiry,
             text=date.get('text', '')
         )
+    
+    def _image_to_base64(self, image: np.ndarray) -> str:
+        """Converte imagem numpy para base64."""
+        try:
+            # Converter BGR para RGB se necessário
+            if len(image.shape) == 3 and image.shape[2] == 3:
+                image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            else:
+                image_rgb = image
+            
+            # Converter para PIL Image
+            pil_image = Image.fromarray(image_rgb)
+            
+            # Salvar em buffer como JPEG
+            buffer = io.BytesIO()
+            pil_image.save(buffer, format='JPEG', quality=95)
+            buffer.seek(0)
+            
+            # Converter para base64
+            img_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+            return f"data:image/jpeg;base64,{img_base64}"
+        except Exception as e:
+            logger.error(f"Erro ao converter imagem para base64: {e}")
+            return None
     
     def _create_visualization(
         self,

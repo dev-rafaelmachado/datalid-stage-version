@@ -186,13 +186,19 @@ class FullPipeline(PipelineBase):
                 crop_processed = crop
             
             # OCR
+            ocr_start = time.time()
             text, confidence = self.ocr_engine.extract_text(crop_processed)
+            ocr_time = time.time() - ocr_start
             
             ocr_result = {
                 'detection_index': i,
                 'text': text,
                 'confidence': confidence,
-                'bbox': detection['bbox']
+                'bbox': detection['bbox'],
+                'engine': self.ocr_engine.__class__.__name__,
+                'processing_time': ocr_time,
+                'crop_original': crop,  # Crop original
+                'crop_processed': crop_processed  # Crop pré-processado
             }
             ocr_results.append(ocr_result)
             

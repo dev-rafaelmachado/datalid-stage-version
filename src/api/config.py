@@ -161,7 +161,7 @@ class APISettings(BaseSettings):
     # MODELOS
     # ========================================
     default_yolo_model: str = Field(
-        default="experiments/yolov8m_seg_best/weights/best.pt",
+        default="experiments/1104/yolov8m-seg/weights/best.",
         description="Caminho do modelo YOLO padrão"
     )
     model_device: str = Field(

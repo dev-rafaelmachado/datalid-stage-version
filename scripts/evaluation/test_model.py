@@ -71,6 +71,7 @@ def test_model(
     """
     model_path = Path(model_path)
     data_yaml_path = Path(data_yaml)
+    model_dir = model_path.parent.parent
     
     # Validações
     if not model_path.exists():
@@ -97,14 +98,15 @@ def test_model(
     else:
         output_dir = Path(output_dir)
     
-    exp_name = f"{model_path.stem}_{split}"
+    exp_name = f"{model_dir.name}_{split}"
     
     # Carregar modelo
     logger.info("📥 Carregando modelo...")
     model = YOLO(str(model_path))
     
     # Detectar tipo de tarefa
-    task_type = 'segment' if 'seg' in model_path.stem else 'detect'
+    model_dir = model_path.parent.parent
+    task_type = 'segment' if 'seg' in model_dir.name else 'detect'
     logger.info(f"🎯 Tipo de tarefa detectado: {task_type}")
     
     # Executar teste

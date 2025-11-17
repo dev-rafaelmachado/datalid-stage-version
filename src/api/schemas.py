@@ -116,7 +116,11 @@ class ProcessingOptions(BaseModel):
     )
     return_crops: bool = Field(
         default=False,
-        description="Retornar crops das detecções"
+        description="Retornar crops das detecções (DEPRECATED: use return_crop_images)"
+    )
+    return_crop_images: bool = Field(
+        default=False,
+        description="Retornar imagens dos crops (original e pré-processado) nos resultados OCR"
     )
     return_full_ocr: bool = Field(
         default=False,
@@ -174,6 +178,14 @@ class DetectionResult(BaseModel):
         default=False,
         description="Tem máscara de segmentação"
     )
+    segmentation: Optional[List[List[float]]] = Field(
+        default=None,
+        description="Coordenadas do polígono da máscara [[x1,y1], [x2,y2], ...]"
+    )
+    segmentation: Optional[List[List[float]]] = Field(
+        default=None,
+        description="Coordenadas do polígono de segmentação [[x1,y1], [x2,y2], ...]"
+    )
 
 
 class OCRResult(BaseModel):
@@ -188,6 +200,14 @@ class OCRResult(BaseModel):
     processing_time: float = Field(
         ge=0.0,
         description="Tempo de processamento (segundos)"
+    )
+    crop_original_base64: Optional[str] = Field(
+        default=None,
+        description="Imagem do crop original (base64)"
+    )
+    crop_processed_base64: Optional[str] = Field(
+        default=None,
+        description="Imagem do crop pré-processado (base64)"
     )
 
 
@@ -214,6 +234,10 @@ class ParsedDate(BaseModel):
     days_until_expiry: Optional[int] = Field(
         default=None,
         description="Dias até expiração (negativo se expirado)"
+    )
+    text: Optional[str] = Field(
+        default=None,
+        description="Texto original extraído do OCR"
     )
 
 
