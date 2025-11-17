@@ -4,11 +4,12 @@ Wrapper para modelos YOLO com interface simplificada.
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Union, Any, Tuple
-import torch
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
-from PIL import Image
+import torch
 from loguru import logger
+from PIL import Image
 
 try:
     from ultralytics import YOLO
@@ -18,12 +19,11 @@ except ImportError:
     raise
 
 from ..core.config import config
-from ..core.exceptions import (
-    ModelNotFoundError, ModelLoadError, GPUNotAvailableError,
-    InvalidModelError, PredictionError
-)
-from ..core.constants import YOLO_MODELS, CLASS_COLORS
-from .config import YOLOConfig, TrainingConfig
+from ..core.constants import CLASS_COLORS, YOLO_MODELS
+from ..core.exceptions import (GPUNotAvailableError, InvalidModelError,
+                               ModelLoadError, ModelNotFoundError,
+                               PredictionError)
+from .config import TrainingConfig, YOLOConfig
 
 
 class YOLOWrapper:
@@ -56,24 +56,70 @@ class YOLOWrapper:
             self.load_model(model_path)
 
     def _validate_gpu(self) -> None:
-        """Valida disponibilidade da GPU."""
-        if not torch.cuda.is_available():
-            logger.warning("CUDA não disponível, usando CPU")
+        """
+        Valida disponibilidade da GPU com fallback robusto para CPU.
+        
+        Garante que nunca vai falhar mesmo se CUDA não estiver disponível.
+        """
+        try:
+            # Se já é CPU, não precisa validar
+            if str(self.device).lower() == 'cpu':
+                self.config.use_gpu = False
+                return
+            
+            # Verificar se CUDA está disponível
+            if not torch.cuda.is_available():
+                logger.warning(
+                    "⚠️ CUDA não disponível. Usando CPU. "
+                    "Para usar GPU, instale PyTorch com CUDA: "
+                    "https://pytorch.org/get-started/locally/"
+                )
+                self.device = 'cpu'
+                self.config.use_gpu = False
+                return
+            
+            # CUDA disponível - validar device específico
+            gpu_count = torch.cuda.device_count()
+            logger.info(f"🎮 GPUs disponíveis: {gpu_count}")
+            
+            # Extrair ID do device
+            device_str = str(self.device)
+            if device_str.isdigit():
+                device_id = int(device_str)
+            elif device_str.startswith('cuda:'):
+                device_id = int(device_str.split(':')[1])
+            else:
+                device_id = 0
+            
+            # Validar se device existe
+            if device_id >= gpu_count:
+                logger.warning(
+                    f"⚠️ GPU {device_id} não encontrada. "
+                    f"Dispositivos disponíveis: 0-{gpu_count-1}. "
+                    f"Usando GPU 0."
+                )
+                device_id = 0
+            
+            # Configurar device (YOLO aceita inteiro diretamente)
+            self.device = device_id
+            logger.success(f"✅ Usando GPU {device_id}")
+            
+        except Exception as e:
+            # Qualquer erro -> fallback para CPU com segurança
+            logger.warning(
+                f"⚠️ Erro ao validar GPU: {e}. "
+                f"Usando CPU por segurança."
+            )
             self.device = 'cpu'
             self.config.use_gpu = False
-        else:
-            gpu_count = torch.cuda.device_count()
-            device_id = int(self.device) if self.device.isdigit() else 0
-
-            if device_id >= gpu_count:
-                logger.warning(f"GPU {device_id} não encontrada, usando GPU 0")
-                device_id = 0
-
-            # Converter para formato correto (cuda:0 ou apenas 0 para YOLO)
-            self.device = device_id
 
     def load_model(self, model_path: str) -> None:
-        """Carrega modelo YOLO."""
+        """
+        Carrega modelo YOLO com fallback robusto para CPU.
+        
+        Args:
+            model_path: Caminho do modelo (.pt)
+        """
         try:
             logger.info(f"🤖 Carregando modelo: {model_path}")
 
@@ -89,17 +135,45 @@ class YOLOWrapper:
             self.model_path = model_path
             self.is_loaded = True
 
-            # Configurar dispositivo
-            # YOLO aceita: inteiro (0, 1, etc), 'cpu', ou 'cuda'
-            device_arg = self.device if isinstance(
-                self.device, int) or self.device == 'cpu' else int(self.device)
-            if hasattr(self.model, 'to'):
-                self.model.to(device_arg)
+            # Configurar dispositivo com fallback seguro
+            try:
+                # YOLO aceita: inteiro (0, 1, etc), 'cpu', ou 'cuda'
+                if isinstance(self.device, int):
+                    device_arg = self.device
+                elif str(self.device).lower() == 'cpu':
+                    device_arg = 'cpu'
+                elif str(self.device).isdigit():
+                    device_arg = int(self.device)
+                else:
+                    # Qualquer outro caso -> CPU por segurança
+                    logger.warning(
+                        f"⚠️ Device inválido '{self.device}'. Usando CPU."
+                    )
+                    device_arg = 'cpu'
+                    self.device = 'cpu'
+                
+                # Mover modelo para device
+                if hasattr(self.model, 'to'):
+                    self.model.to(device_arg)
+                    
+                logger.success(f"✅ Modelo carregado: {model_path}")
+                logger.info(f"📍 Dispositivo: {device_arg}")
+                
+            except Exception as device_error:
+                # Se falhar ao configurar device, usar CPU
+                logger.warning(
+                    f"⚠️ Erro ao configurar device: {device_error}. "
+                    f"Usando CPU."
+                )
+                self.device = 'cpu'
+                if hasattr(self.model, 'to'):
+                    self.model.to('cpu')
 
-            logger.success(f"✅ Modelo carregado: {model_path}")
-            logger.info(f"📍 Dispositivo: {device_arg}")
             self._log_model_info()
 
+        except ModelNotFoundError:
+            # Re-raise erros específicos
+            raise
         except Exception as e:
             logger.error(f"❌ Erro carregando modelo {model_path}: {str(e)}")
             raise ModelLoadError(f"Erro carregando modelo: {str(e)}")
@@ -152,7 +226,18 @@ class YOLOWrapper:
         iou: Optional[float] = None,
         **kwargs
     ) -> Any:
-        """Predição genérica."""
+        """
+        Predição genérica com fallback robusto para CPU.
+        
+        Args:
+            source: Imagem ou caminho
+            conf: Confiança mínima
+            iou: IoU threshold
+            **kwargs: Argumentos adicionais
+            
+        Returns:
+            Resultados da predição
+        """
         if not self.is_loaded:
             raise ModelNotFoundError("Modelo não carregado")
 
@@ -161,15 +246,45 @@ class YOLOWrapper:
         iou = iou or self.config.iou_threshold
 
         try:
+            # Garantir device válido
+            device = self.device
+            if device is None or str(device).strip() == '':
+                logger.warning("⚠️ Device não definido. Usando CPU.")
+                device = 'cpu'
+            
             results = self.model.predict(
                 source=source,
                 conf=conf,
                 iou=iou,
-                device=self.device,
+                device=device,
                 **kwargs
             )
             return results
 
+        except RuntimeError as e:
+            # Erro de runtime pode ser por CUDA - tentar CPU
+            if 'CUDA' in str(e) or 'cuda' in str(e).lower():
+                logger.warning(
+                    f"⚠️ Erro CUDA: {e}. "
+                    f"Tentando novamente com CPU..."
+                )
+                self.device = 'cpu'
+                try:
+                    results = self.model.predict(
+                        source=source,
+                        conf=conf,
+                        iou=iou,
+                        device='cpu',
+                        **kwargs
+                    )
+                    return results
+                except Exception as cpu_error:
+                    logger.error(f"❌ Erro na predição com CPU: {cpu_error}")
+                    raise PredictionError(f"Erro na predição: {cpu_error}")
+            else:
+                logger.error(f"❌ Erro na predição: {e}")
+                raise PredictionError(f"Erro na predição: {e}")
+                
         except Exception as e:
             logger.error(f"❌ Erro na predição: {str(e)}")
             raise PredictionError(f"Erro na predição: {str(e)}")

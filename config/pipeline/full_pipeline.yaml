@@ -3,10 +3,10 @@ name: expiry_date_full_pipeline
 
 # Detecção (YOLO)
 detection:
-  model_path: experiments\1104\yolov8m-seg\weights\best.pt
+  model_path: models/yolov8m-seg.pt  # Será sobrescrito pelo .env
   confidence: 0.25
   iou: 0.7
-  device: 0
+  device: cpu  # Será sobrescrito pelo .env (cpu ou cuda)
 
 # OCR
 ocr:

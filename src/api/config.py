@@ -413,34 +413,78 @@ class APISettings(BaseSettings):
     
     def get_yolo_device(self) -> str:
         """
-        Retorna device para YOLO.
+        Retorna device para YOLO com fallback automático para CPU.
         
-        Se use_gpu=True e CUDA disponível, usa GPU.
-        Senão, usa CPU.
+        Ordem de prioridade:
+        1. Se use_gpu=False -> CPU
+        2. Se CUDA não disponível -> CPU (com warning)
+        3. Se CUDA disponível e use_gpu=True -> GPU
         
         Returns:
             String do device ('cpu', 'cuda', 'cuda:0', etc)
         """
+        # Se explicitamente não quer GPU, usar CPU
         if not self.use_gpu:
             return "cpu"
         
-        # Verificar se CUDA está disponível
+        # Se model_device já é 'cpu', usar CPU
+        if self.model_device.lower() == 'cpu':
+            return "cpu"
+        
+        # Tentar verificar se CUDA está disponível
         try:
             import torch
-            if torch.cuda.is_available():
-                # Se model_device é um número, usar cuda:N
-                if self.model_device.isdigit():
-                    return f"cuda:{self.model_device}"
-                # Se já é 'cuda' ou 'cuda:N', usar como está
-                if self.model_device.startswith("cuda"):
-                    return self.model_device
-                # Caso contrário, usar cuda padrão
-                return "cuda"
+            
+            if not torch.cuda.is_available():
+                # CUDA não disponível - usar CPU com warning
+                import warnings
+                warnings.warn(
+                    "GPU solicitada mas CUDA não está disponível. "
+                    "Usando CPU. Para usar GPU, instale PyTorch com suporte CUDA: "
+                    "https://pytorch.org/get-started/locally/"
+                )
+                return "cpu"
+            
+            # CUDA disponível!
+            device_count = torch.cuda.device_count()
+            
+            # Se model_device é um número
+            if self.model_device.isdigit():
+                device_id = int(self.model_device)
+                
+                # Verificar se device existe
+                if device_id < device_count:
+                    return f"cuda:{device_id}"
+                else:
+                    warnings.warn(
+                        f"GPU {device_id} não encontrada. "
+                        f"Dispositivos disponíveis: 0-{device_count-1}. "
+                        f"Usando GPU 0."
+                    )
+                    return "cuda:0"
+            
+            # Se já é 'cuda' ou 'cuda:N'
+            if self.model_device.startswith("cuda"):
+                return self.model_device
+            
+            # Caso padrão: usar primeira GPU
+            return "cuda:0"
+            
         except ImportError:
-            pass
-        
-        # Se não tiver torch ou CUDA, usar CPU
-        return "cpu"
+            # PyTorch não instalado - usar CPU
+            import warnings
+            warnings.warn(
+                "PyTorch não encontrado. Usando CPU. "
+                "Para usar GPU, instale PyTorch: pip install torch"
+            )
+            return "cpu"
+        except Exception as e:
+            # Qualquer outro erro - usar CPU com segurança
+            import warnings
+            warnings.warn(
+                f"Erro ao verificar CUDA: {e}. Usando CPU."
+            )
+            return "cpu"
     
     def get_yolo_config(self) -> Dict:
         """

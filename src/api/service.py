@@ -85,6 +85,13 @@ class ProcessingService:
         # Sobrescrever com configurações do .env
         yolo_config = self.settings.get_yolo_config()
         
+        # Log configuração do device
+        logger.info(f"🎯 Configuração YOLO:")
+        logger.info(f"   Modelo: {yolo_config['model_path']}")
+        logger.info(f"   Device: {yolo_config['device']}")
+        logger.info(f"   Confidence: {yolo_config['conf']}")
+        logger.info(f"   IoU: {yolo_config['iou']}")
+        
         # Atualizar configuração do YOLO
         if 'yolo' not in config:
             config['yolo'] = {}
