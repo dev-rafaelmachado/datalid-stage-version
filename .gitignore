@@ -318,3 +318,8 @@ node_modules/
 # Keep data configs
 !data/**/data.yaml
 !data/**/ground_truth.json
+
+
+# deploy
+
+!experiments/1104/yolov8m-seg/weights/best.pt
