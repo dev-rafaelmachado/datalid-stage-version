@@ -62,15 +62,53 @@ class ProcessingService:
             raise
     
     def _build_pipeline_config(self) -> Dict[str, Any]:
-        """Constrói configuração do pipeline."""
-        config_path = "config/pipeline/full_pipeline.yaml"
-        config_path = Path(config_path)
+        """
+        Constrói configuração do pipeline usando variáveis de ambiente.
         
-        if not config_path.exists():
-            raise FileNotFoundError(f"Arquivo de configuração não encontrado: {config_path}")
+        Prioridade:
+        1. Variáveis de ambiente (.env)
+        2. Arquivo YAML de configuração
+        3. Valores padrão
+        """
+        # Tentar carregar configuração base do YAML
+        config_path = Path("config/pipeline/full_pipeline.yaml")
         
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = yaml.safe_load(f)
+        if config_path.exists():
+            logger.debug(f"Carregando configuração de: {config_path}")
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+        else:
+            logger.warning(f"Arquivo de configuração não encontrado: {config_path}")
+            logger.info("Usando configuração padrão")
+            config = {}
+        
+        # Sobrescrever com configurações do .env
+        yolo_config = self.settings.get_yolo_config()
+        
+        # Atualizar configuração do YOLO
+        if 'yolo' not in config:
+            config['yolo'] = {}
+        
+        config['yolo']['model_path'] = yolo_config['model_path']
+        config['yolo']['device'] = yolo_config['device']
+        config['yolo']['conf'] = yolo_config['conf']
+        config['yolo']['iou'] = yolo_config['iou']
+        config['yolo']['verbose'] = yolo_config['verbose']
+        
+        # Atualizar configuração do OCR
+        if 'ocr' not in config:
+            config['ocr'] = {}
+        
+        config['ocr']['engine'] = self.settings.default_ocr_engine
+        config['ocr']['config_path'] = self.settings.default_ocr_config
+        
+        # Atualizar configuração de pré-processamento
+        if 'preprocessing' not in config:
+            config['preprocessing'] = {}
+        
+        config['preprocessing']['config_path'] = self.settings.default_preprocessing_config
+        
+        logger.debug(f"Configuração final do pipeline: {config}")
         
         return config
     

@@ -158,15 +158,19 @@ class APISettings(BaseSettings):
     )
     
     # ========================================
-    # MODELOS
+    # MODELOS YOLO
     # ========================================
-    default_yolo_model: str = Field(
-        default="experiments/1104/yolov8m-seg/weights/best.",
-        description="Caminho do modelo YOLO padrão"
+    yolo_model_path: str = Field(
+        default="models/yolov8m-seg.pt",
+        description="Caminho do modelo YOLO (pode usar variável de ambiente YOLO_MODEL_PATH)"
     )
     model_device: str = Field(
-        default="0",
-        description="Device para modelos (cuda:0, cpu, etc)"
+        default="cpu",
+        description="Device para modelos (cuda, cuda:0, cpu, etc)"
+    )
+    use_gpu: bool = Field(
+        default=False,
+        description="Tentar usar GPU se disponível"
     )
     
     # ========================================
@@ -298,6 +302,31 @@ class APISettings(BaseSettings):
     # ========================================
     # VALIDADORES
     # ========================================
+    @field_validator("yolo_model_path")
+    @classmethod
+    def validate_yolo_model(cls, v: str) -> str:
+        """Valida se o modelo YOLO existe."""
+        model_path = Path(v)
+        if not model_path.exists():
+            # Tentar caminhos alternativos
+            alternatives = [
+                Path("models") / model_path.name,
+                Path(".") / "models" / model_path.name,
+                Path("/app/models") / model_path.name,  # Docker
+            ]
+            
+            for alt in alternatives:
+                if alt.exists():
+                    return str(alt)
+            
+            # Se não encontrar, apenas avisar (não falhar)
+            import warnings
+            warnings.warn(
+                f"Modelo YOLO não encontrado em: {v}. "
+                f"Tentativas: {[str(a) for a in alternatives]}"
+            )
+        return v
+    
     @field_validator("allowed_extensions")
     @classmethod
     def validate_extensions(cls, v: List[str]) -> List[str]:
@@ -346,6 +375,86 @@ class APISettings(BaseSettings):
             "allow_credentials": self.cors_credentials,
             "allow_methods": self.cors_methods,
             "allow_headers": self.cors_headers,
+        }
+    
+    def get_yolo_model_path(self) -> Path:
+        """
+        Retorna Path do modelo YOLO.
+        
+        Tenta encontrar o modelo em vários locais.
+        
+        Returns:
+            Path do modelo YOLO
+            
+        Raises:
+            FileNotFoundError: Se modelo não for encontrado
+        """
+        model_path = Path(self.yolo_model_path)
+        
+        # Se caminho absoluto existe
+        if model_path.is_absolute() and model_path.exists():
+            return model_path
+        
+        # Tentar caminhos relativos
+        search_paths = [
+            model_path,  # Caminho original
+            Path("models") / model_path.name,
+            Path(".") / self.yolo_model_path,
+            Path("/app/models") / model_path.name,  # Docker
+            Path("../models") / model_path.name,
+        ]
+        
+        for path in search_paths:
+            if path.exists():
+                return path.resolve()
+        
+        # Se não encontrar, retornar o caminho original e deixar o YOLO lidar
+        return model_path
+    
+    def get_yolo_device(self) -> str:
+        """
+        Retorna device para YOLO.
+        
+        Se use_gpu=True e CUDA disponível, usa GPU.
+        Senão, usa CPU.
+        
+        Returns:
+            String do device ('cpu', 'cuda', 'cuda:0', etc)
+        """
+        if not self.use_gpu:
+            return "cpu"
+        
+        # Verificar se CUDA está disponível
+        try:
+            import torch
+            if torch.cuda.is_available():
+                # Se model_device é um número, usar cuda:N
+                if self.model_device.isdigit():
+                    return f"cuda:{self.model_device}"
+                # Se já é 'cuda' ou 'cuda:N', usar como está
+                if self.model_device.startswith("cuda"):
+                    return self.model_device
+                # Caso contrário, usar cuda padrão
+                return "cuda"
+        except ImportError:
+            pass
+        
+        # Se não tiver torch ou CUDA, usar CPU
+        return "cpu"
+    
+    def get_yolo_config(self) -> Dict:
+        """
+        Retorna configuração completa para YOLO.
+        
+        Returns:
+            Dicionário com configurações
+        """
+        return {
+            "model_path": str(self.get_yolo_model_path()),
+            "device": self.get_yolo_device(),
+            "conf": self.default_confidence,
+            "iou": self.default_iou,
+            "verbose": self.debug,
         }
     
     def to_dict(self) -> Dict:
